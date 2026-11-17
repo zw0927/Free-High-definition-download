@@ -1,0 +1,15 @@
+Free HD Download / Android and Windows
+Copyright 2026 Free HD Download contributors.
+
+This project includes a modified Java adaptation of the a_bogus algorithm
+from Johnserf-Seed/f2, Copyright JohnserfSeed, licensed under Apache-2.0.
+See assets/THIRD_PARTY_NOTICES.txt for original source links and changes.
+
+Windows distributions include independently licensed components:
+mp4parser (Apache-2.0), JSON-java (public domain), AspectJ runtime (EPL-2.0),
+SLF4J (MIT), FlatLaf (Apache-2.0), and Eclipse Temurin OpenJDK (GPLv2 with Classpath Exception).
+Their licenses remain applicable to those components. Runtime licenses
+are included under runtime/legal. No FFmpeg binary is bundled.
+
+Douyin, Xiaohongshu and Bilibili are third-party services. This project is
+not affiliated with them. Downloaded content retains its original rights.

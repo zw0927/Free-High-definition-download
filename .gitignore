@@ -1,0 +1,14 @@
+.tools/
+build/
+local.properties
+signing/
+release/
+dist/
+*.keystore
+*.jks
+*.p12
+.env
+.env.*
+promotion/styles-gallery/
+promotion/work/
+FreeHDDownload-data/

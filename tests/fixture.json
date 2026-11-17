@@ -1,0 +1,52 @@
+{
+  "aweme_detail": {
+    "aweme_id": "7708260643380177914",
+    "desc": "各编程语言执行速度对比",
+    "author": { "nickname": "数据与科学" },
+    "video": {
+      "width": 1080,
+      "height": 1920,
+      "duration": 17234,
+      "play_addr": {
+        "width": 720,
+        "height": 1280,
+        "url_list": ["https://example.invalid/base.mp4"]
+      },
+      "download_addr": {
+        "url_list": ["https://example.invalid/playwm/watermark.mp4"]
+      },
+      "bit_rate": [
+        {
+          "bit_rate": 250000,
+          "is_h265": 0,
+          "play_addr": {
+            "width": 720,
+            "height": 1280,
+            "data_size": 542648,
+            "url_list": ["https://example.invalid/720.mp4"]
+          }
+        },
+        {
+          "bit_rate": 235772,
+          "is_h265": 0,
+          "play_addr": {
+            "width": 1080,
+            "height": 1920,
+            "data_size": 507913,
+            "url_list": ["https://example.invalid/1080.mp4"]
+          }
+        },
+        {
+          "bit_rate": 203849,
+          "is_h265": 1,
+          "play_addr": {
+            "width": 1080,
+            "height": 1920,
+            "data_size": 439143,
+            "url_list": ["https://example.invalid/1080-hevc.mp4"]
+          }
+        }
+      ]
+    }
+  }
+}
