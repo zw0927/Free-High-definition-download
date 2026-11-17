@@ -4,6 +4,7 @@ import cn.dousave.app.VideoInfo;
 import cn.dousave.app.VideoResolver;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -259,6 +260,11 @@ public final class DesktopApp extends JFrame {
         saveActions.add(copy);
         saveActions.add(text);
         result.add(saveActions);
+        for (Component component : result.getComponents()) {
+            if (component instanceof javax.swing.JComponent) {
+                ((javax.swing.JComponent) component).setAlignmentX(0);
+            }
+        }
         result.setVisible(false);
         content.add(result);
         JPanel transfer = new JPanel(new BorderLayout(10, 0));
