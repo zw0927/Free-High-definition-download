@@ -15,6 +15,7 @@ public final class VideoInfo {
     public String cover;
     public String description = "";
     public String sourceLink = "";
+    public String qualityMessage = "";
     public boolean article;
     public final ArrayList<ArrayList<String>> images = new ArrayList<>();
     public long duration;

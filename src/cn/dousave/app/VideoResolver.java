@@ -14,6 +14,15 @@ import org.json.JSONObject;
 
 public final class VideoResolver {
     private final HttpClient http = new HttpClient();
+    private final String biliCookie;
+
+    public VideoResolver() {
+        this("");
+    }
+
+    public VideoResolver(String biliCookie) {
+        this.biliCookie = BiliLogin.sessionCookie(biliCookie);
+    }
 
     public VideoInfo resolve(String text) throws Exception {
         String link = ShareLink.parseInput(text);
@@ -227,7 +236,7 @@ public final class VideoResolver {
         info.cover = "";
         JSONArray images = note.optJSONArray("imageList");
         if (images != null && images.optJSONObject(0) != null) {
-            info.cover = images.optJSONObject(0).optString("urlDefault", images.optJSONObject(0).optString("url"));
+            info.cover = xhsImageSources(images.getJSONObject(0)).get(0);
         }
         if (info.cover.startsWith("http://")) {
             info.cover = "https://" + info.cover.substring(7);
@@ -239,21 +248,14 @@ public final class VideoResolver {
                     if (image == null) {
                         continue;
                     }
-                    ArrayList<String> candidates = new ArrayList<>();
-                    VideoInfo.addImageUrl(candidates, image.optString("urlDefault", image.optString("url")));
-                    JSONArray alternatives = image.optJSONArray("infoList");
-                    if (alternatives != null) {
-                        for (int position = 0; position < alternatives.length(); position++) {
-                            JSONObject alternative = alternatives.optJSONObject(position);
-                            if (alternative != null) {
-                                VideoInfo.addImageUrl(candidates, alternative.optString("url"));
-                            }
-                        }
-                    }
+                    ArrayList<String> candidates = xhsImageSources(image);
                     if (!candidates.isEmpty()) {
                         info.images.add(candidates);
                     }
                 }
+            }
+            if (!info.images.isEmpty()) {
+                info.cover = info.images.get(0).get(0);
             }
             return info;
         }
@@ -299,6 +301,41 @@ public final class VideoResolver {
         return info;
     }
 
+    public static ArrayList<String> xhsImageSources(JSONObject image) throws Exception {
+        ArrayList<String> sources = new ArrayList<>();
+        String key = image.optString("fileId");
+        if (key.isEmpty()) {
+            String address = image.optString("urlDefault", image.optString("url"));
+            JSONArray alternatives = image.optJSONArray("infoList");
+            if (address.isEmpty() && alternatives != null && alternatives.optJSONObject(0) != null) {
+                address = alternatives.getJSONObject(0).optString("url");
+            }
+            if (!address.isEmpty()) {
+                URI uri = URI.create(address);
+                String host = uri.getHost();
+                if (host != null && ShareLink.belongs(host, "xhscdn.com")) {
+                    String path = uri.getPath();
+                    int transform = path.indexOf('!');
+                    if (transform >= 0) {
+                        path = path.substring(0, transform);
+                    }
+                    // Webpic paths prepend an expiring date and signature before the image key.
+                    path = path.replaceFirst("^/[0-9]{12}/[a-fA-F0-9]{32}/", "/");
+                    if (path.startsWith("/")) {
+                        key = path.substring(1);
+                    }
+                }
+            }
+        }
+        if (!key.matches("[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*")) {
+            throw new Exception("小红书未提供可识别的原图地址，请重新复制完整分享链接");
+        }
+        VideoInfo.addImageUrl(sources, "https://sns-img-qc.xhscdn.com/" + key);
+        VideoInfo.addImageUrl(sources, "https://sns-img-bd.xhscdn.com/" + key);
+        VideoInfo.addImageUrl(sources, "https://ci.xiaohongshu.com/" + key);
+        return sources;
+    }
+
     private VideoInfo bilibili(String link) throws Exception {
         String resolved = link;
         if (ShareLink.belongs(URI.create(link).getHost(), "b23.tv")) {
@@ -314,7 +351,17 @@ public final class VideoResolver {
         } else {
             throw new Exception("请使用B站普通视频的 BV、av 或 b23.tv 链接");
         }
-        JSONObject metadata = json(http.get("https://api.bilibili.com/x/web-interface/view?" + query, "https://www.bilibili.com/"));
+        HashMap<String, String> headers = new HashMap<>();
+        if (!biliCookie.isEmpty()) {
+            headers.put("Cookie", biliCookie);
+            JSONObject account = json(http.request("https://api.bilibili.com/x/web-interface/nav", "GET", "",
+                "https://www.bilibili.com/", headers));
+            if (account.optJSONObject("data") == null || !account.getJSONObject("data").optBoolean("isLogin")) {
+                throw new Exception("B站登录已失效，请点击B站登录后重新解析");
+            }
+        }
+        JSONObject metadata = json(http.request("https://api.bilibili.com/x/web-interface/view?" + query,
+            "GET", "", "https://www.bilibili.com/", headers));
         if (metadata.optInt("code", -1) != 0) {
             throw new Exception("B站作品不可用：" + metadata.optString("message"));
         }
@@ -331,11 +378,17 @@ public final class VideoResolver {
         JSONObject page = pages.getJSONObject(part - 1);
         String playQuery = "bvid=" + data.getString("bvid") + "&cid=" + page.getLong("cid")
             + "&qn=127&fnval=4048&fnver=0&fourk=1";
-        JSONObject playback = json(http.get("https://api.bilibili.com/x/player/playurl?" + playQuery, "https://www.bilibili.com/"));
+        JSONObject playback = json(http.request("https://api.bilibili.com/x/player/playurl?" + playQuery,
+            "GET", "", "https://www.bilibili.com/", headers));
         if (playback.optInt("code", -1) != 0) {
             throw new Exception("B站播放接口返回：" + playback.optString("message"));
         }
         VideoInfo info = parseBili(data, page, playback.getJSONObject("data"));
+        if (biliCookie.isEmpty()) {
+            info.qualityMessage = "当前为B站访客画质；登录后重新解析可获取账号可用的高清画质";
+        } else {
+            info.qualityMessage = "已获取B站登录账号可用画质";
+        }
         return info;
     }
 
@@ -374,12 +427,17 @@ public final class VideoResolver {
                 for (int index = 0; index < videos.length(); index++) {
                     JSONObject track = videos.getJSONObject(index);
                     String codecs = track.optString("codecs");
-                    if (!codecs.startsWith("avc")) {
+                    boolean hevc = codecs.startsWith("hev1") || codecs.startsWith("hvc1");
+                    if (!codecs.startsWith("avc") && !hevc) {
                         continue;
                     }
                     VideoInfo.Variant variant = new VideoInfo.Variant();
+                    variant.hevc = hevc;
                     variant.width = track.optInt("width");
                     variant.height = track.optInt("height");
+                    if (variant.width <= 0 || variant.height <= 0) {
+                        continue;
+                    }
                     variant.bitrate = track.optLong("bandwidth");
                     addTrackUrls(variant.urls, track);
                     if (bestAudio != null) {
@@ -412,6 +470,12 @@ public final class VideoResolver {
                 int resolution = Long.compare((long) right.width * right.height, (long) left.width * left.height);
                 if (resolution != 0) {
                     return resolution;
+                }
+                if (left.hevc != right.hevc) {
+                    if (left.hevc) {
+                        return 1;
+                    }
+                    return -1;
                 }
                 return Long.compare(right.bitrate, left.bitrate);
             }

@@ -7,7 +7,7 @@ See assets/THIRD_PARTY_NOTICES.txt for original source links and changes.
 
 Windows distributions include independently licensed components:
 mp4parser (Apache-2.0), JSON-java (public domain), AspectJ runtime (EPL-2.0),
-SLF4J (MIT), FlatLaf (Apache-2.0), and Eclipse Temurin OpenJDK (GPLv2 with Classpath Exception).
+SLF4J (MIT), FlatLaf and ZXing (Apache-2.0), and Eclipse Temurin OpenJDK (GPLv2 with Classpath Exception).
 Their licenses remain applicable to those components. Runtime licenses
 are included under runtime/legal. No FFmpeg binary is bundled.
 

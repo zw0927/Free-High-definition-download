@@ -78,6 +78,12 @@ public final class CoreTest {
         check(bili.id.endsWith("_2") && bili.title.contains("Second"), "Correct Bili part");
         check(bili.variants.size() == 1 && bili.variants.get(0).audioUrls.size() == 1, "Bili video paired with audio");
         check(bili.variants.get(0).urls.size() == 2, "Bili backup CDN");
+        play.getJSONObject("dash").getJSONArray("video").put(new JSONObject()
+            .put("codecs", "hvc1.1.6.L120.90").put("width", 3840).put("height", 2160)
+            .put("baseUrl", "https://example.invalid/uhd-hevc.m4s"));
+        VideoInfo highQualityBili = VideoResolver.parseBili(metadata, page, play);
+        check(highQualityBili.variants.get(0).width == 3840 && highQualityBili.variants.get(0).hevc,
+            "Bili keeps highest HEVC quality instead of silently discarding it");
         play.getJSONObject("dash").remove("audio");
         rejected = false;
         try {
@@ -107,11 +113,30 @@ public final class CoreTest {
         check(mobile.id.equals(noteId) && mobile.variants.size() == 1, "XHS mobile INITIAL_STATE structure");
         note.put("type", "normal");
         note.put("desc", "Photo post text");
-        note.put("imageList", new org.json.JSONArray().put(new JSONObject().put("url", "http://example.invalid/photo.webp")
-            .put("infoList", new org.json.JSONArray().put(new JSONObject().put("url", "https://example.invalid/photo-backup.webp")))));
+        note.put("imageList", new org.json.JSONArray().put(new JSONObject()
+            .put("fileId", "spectrum/1040g34o327lg12566g505pj2pr23cul1hs42fj8")
+            .put("url", "http://sns-webpic-qc.xhscdn.com/202611171623/e7c65a4f749135a81c3af77d769051ba/spectrum/1040g34o327lg12566g505pj2pr23cul1hs42fj8!h5_1080jpg")));
         VideoInfo photoNote = VideoResolver.parseXhs(mobileState, noteId);
-        check(photoNote.variants.isEmpty() && photoNote.images.size() == 1 && photoNote.images.get(0).size() == 2, "XHS photo post and backups");
+        check(photoNote.variants.isEmpty() && photoNote.images.size() == 1 && photoNote.images.get(0).size() == 3, "XHS photo post with original CDN backups");
         check(photoNote.images.get(0).get(0).startsWith("https://") && photoNote.description.equals("Photo post text"), "Photo HTTPS and body text");
+        check(photoNote.images.get(0).get(0).equals("https://sns-img-qc.xhscdn.com/spectrum/1040g34o327lg12566g505pj2pr23cul1hs42fj8"), "XHS uses full-resolution original, not watermarked H5 image");
+        JSONObject imageWithoutId = new JSONObject(note.getJSONArray("imageList").getJSONObject(0).toString());
+        imageWithoutId.remove("fileId");
+        check(VideoResolver.xhsImageSources(imageWithoutId).equals(photoNote.images.get(0)), "XHS original key derived from signed webpic path when fileId is missing");
+        for (String address : photoNote.images.get(0)) {
+            check(!address.contains("!") && !address.contains("webpic"), "Never fall back to XHS watermarked transformations");
+        }
+        rejected = false;
+        try {
+            VideoResolver.xhsImageSources(new JSONObject().put("fileId", "../private/file"));
+        } catch (Exception expected) {
+            rejected = true;
+        }
+        check(rejected, "Reject invalid XHS original key");
+        check(BiliLogin.sessionCookie("SESSDATA=test%2Cvalue; bili_jct=csrf; DedeUserID=123; unrelated=secret")
+            .equals("SESSDATA=test%2Cvalue; bili_jct=csrf; DedeUserID=123"), "Bili credentials retain only required platform cookies");
+        check(BiliLogin.sessionCookie("bili_jct=csrf").isEmpty(), "A CSRF token alone is not a login session");
+        check(BiliLogin.sessionCookie("SESSDATA=value\r\nInjected: bad").isEmpty(), "Reject cookie header injection");
         JSONObject photoDetail = new JSONObject(fixture).getJSONObject("aweme_detail");
         photoDetail.remove("video");
         photoDetail.put("images", new org.json.JSONArray().put(new JSONObject().put("url_list",

@@ -1,5 +1,18 @@
 # 本轮修改文件
 
+## 1.2.2 小红书原图与B站登录画质
+
+- 修改 `src/cn/dousave/app/VideoResolver.java`、`VideoInfo.java`：小红书图片与封面使用原图 CDN，禁止回退到 H5 展示图；B站请求使用可选登录凭据，并显示画质状态。
+- 新增 `src/cn/dousave/app/BiliLogin.java`、`BiliLoginActivity.java`：官方扫码接口、会话校验与安卓登录页。
+- 修改 `src/cn/dousave/app/HttpClient.java`：显式Cookie不随跳转发送到其他主机；B站保留H.265高清轨，相同分辨率优先H.264。
+- 修改 `src/cn/dousave/app/MainActivity.java`：B站登录、退出、登录后刷新解析。
+- 新增 `desktop/src/cn/dousave/desktop/BiliLoginDialog.java`，修改 `DesktopApp.java`：官方二维码、本地登录状态与退出。
+- 修改 `AndroidManifest.xml`、`build.ps1`、`desktop/build.ps1`、`desktop/README.txt`：版本1.2.2、登录页和 ZXing 依赖。
+- 修改 `tests/CoreTest.java`、`tests/run.ps1`、`desktop/tests/run.ps1`；新增 `desktop/tests/BiliQrTest.java`、`XhsOriginalTest.java`：原图地址、防展示图回退、Cookie过滤、二维码解码及真实图集保存验证。
+- 修改 `README.md`、`VALIDATION.md`、`NOTICE`、`assets/THIRD_PARTY_NOTICES.txt`：用法、验证范围与新增组件说明。
+- Windows 1.2.2 EXE便携包与Android签名APK已生成，Android包名和签名证书与1.2.1一致，可覆盖升级。
+- 修改 `tools/github-release.ps1`、`tools/package-release.ps1`、`docs/RELEASE_NOTES.md`：1.2.2源码归档、校验和、明确提交版本的GitHub发布与中英更新说明。
+
 ## Android + Windows 联合开源发布
 
 - 新增 `desktop/src/cn/dousave/desktop/DesktopApp.java`：Windows UI、自动解析、目录选择、文字保存、下载取消、持久记录。

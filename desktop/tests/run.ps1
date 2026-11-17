@@ -15,6 +15,10 @@ $sources = Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.java' | ForEach-O
 if ($LASTEXITCODE -ne 0) {
     throw 'Desktop test compilation failed.'
 }
+& (Join-Path $javaDirectory 'java.exe') -cp $classpath cn.dousave.desktop.BiliQrTest
+if ($LASTEXITCODE -ne 0) {
+    throw 'Bilibili QR round-trip check failed.'
+}
 if (!$Online) {
     Write-Output 'Tests compiled. Use -Online to run real public-link downloads and desktop UI checks.'
     exit 0

@@ -15,6 +15,7 @@ $sources = @(
     (Join-Path $projectDirectory 'src\cn\dousave\app\NetworkPolicy.java'),
     (Join-Path $projectDirectory 'src\cn\dousave\app\DouyinSigner.java'),
     (Join-Path $projectDirectory 'src\cn\dousave\app\VideoResolver.java'),
+    (Join-Path $projectDirectory 'src\cn\dousave\app\BiliLogin.java'),
     (Join-Path $PSScriptRoot 'CoreTest.java'),
     (Join-Path $PSScriptRoot 'ResolveProbe.java')
 )

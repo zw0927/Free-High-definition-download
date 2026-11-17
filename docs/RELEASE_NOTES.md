@@ -1,30 +1,47 @@
 ## 中文
 
-首个 Android + Windows 联合开源版本。
+### v1.2.2
 
-- Android 8.0+：安装 `FreeHDDownload-1.2.1-android.apk`，沿用原应用签名和包名。
-- Windows 10/11 x64：完整解压 ZIP，运行 `FreeHDDownload.exe`，无需安装 Java；不要单独移动 EXE。
-- 支持抖音、小红书、B站公开视频，以及平台提供的图片和文字；可选择实际可用画质。
-- 文章正文可复制及保存 UTF-8 TXT；Android 媒体保存到相册，Windows 可选择目录。
-- Windows 真实验证了抖音视频/图片下载和 B站音视频本地合并，成片完整解码通过。
-- 桌面 UI 自动解析与清空结果检查通过。Windows 原生 EXE 启动在维护环境被系统取消，未完成 EXE 入口实测；内置运行环境的 Java 入口已验证可启动。Android 仍未完成真机保存验证。
+- 修复小红书图片中央平台水印：使用原图CDN，原图失败时不退回H5展示图。用户样例5张图片均实测下载为1440×2400。
+- 新增B站登录：Windows用哔哩哔哩手机App扫码，Android使用官方登录页；登录状态保留在本机，可退出。
+- 登录后重新解析可获取账号可用画质；匿名访问可能只返回360P/480P，1080P及更高档位以平台响应和账号权限为准。
+- 保留B站H.265高清轨，相同分辨率优先H.264；音视频直接合并，不放大或重新压缩。
+- 保留抖音、小红书、B站视频、图片、文案和TXT保存功能。
 
-普通链接在设备本地处理，不需要部署服务器；无网址的抖音口令依赖第三方公共转换服务。画质由平台返回决定，嵌入画面的标识不会被移除。不支持付费、DRM 或私密限制绕过。
+### 下载
 
-Windows 包未做商业代码签名，可能触发 SmartScreen。请核对来源和 `SHA256SUMS.txt`；不需要关闭系统防护。
+- Android 8.0+：安装 `FreeHDDownload-1.2.2-android.apk`，沿用原应用签名和包名，可以覆盖升级。
+- Windows 10/11 x64：完整解压 `FreeHDDownload-1.2.2-windows-x64.zip`，运行 `FreeHDDownload.exe`。保留旁边app与runtime文件夹，无需安装Java。
+- 源码：`FreeHDDownload-1.2.2-source.zip`，Apache-2.0；校验和见 `SHA256SUMS.txt`。
 
-源码：Apache-2.0。Android 私钥、个人设置、测试下载和构建缓存不包含在发行源码中。
+### 验证
+
+Android编译、对齐、v2/v3签名校验及旧版证书一致性检查通过。核心回归、小红书真实图集保存、B站二维码生成/轮询/解码、Windows自动解析与清空检查通过。
+
+尚未完成安卓真机安装与保存、真实账号登录后1080P下载以及新增H.265轨真实合并的端到端验证。Windows发行包未做商业代码签名。详细记录见仓库VALIDATION.md。
+
+普通链接在设备本地处理，无需部署项目服务器。源码和发行包不包含个人设置、签名私钥或测试下载。
 
 ## English
 
-First combined Android + Windows open-source release.
+### v1.2.2
 
-- Android 8.0+: install the APK. The original app package and signing key are preserved.
-- Windows 10/11 x64: extract the complete archive and run `FreeHDDownload.exe`. Java is bundled; keep the adjacent directories.
-- Save supported public Douyin, Xiaohongshu and Bilibili media, photo posts and text. Choose available source quality; export article text as UTF-8 TXT.
-- Windows real-link tests cover Douyin video/images and Bilibili local audio/video muxing with successful full decoding.
-- Desktop automatic parsing and clear/reset checks passed. Native EXE launch was canceled by Windows in the maintainer environment; the bundled-runtime Java entry was checked. Android on-device saving remains unverified.
+- Fix Xiaohongshu image downloads by selecting original CDN sources instead of watermarked H5 display images. All five images in the reported post downloaded at 1440×2400.
+- Add Bilibili login: scan with the Bilibili mobile app on Windows, or use the official login page on Android. Sessions remain on-device and can be removed through sign-out.
+- Parse again after login for account-accessible quality. Anonymous requests may return only 360p/480p; higher resolutions depend on the source and account permissions.
+- Keep available Bilibili HEVC tracks; prefer H.264 at equal resolution. Mux directly without upscaling or re-encoding.
+- Retain supported video, image, caption and TXT saving across Douyin, Xiaohongshu and Bilibili.
 
-Ordinary links run locally without a project backend. URL-less Douyin commands use a third-party public conversion service. Embedded marks remain; resolution is source-dependent. No paid, DRM or private-access bypass.
+### Downloads
 
-Windows builds are unsigned and may trigger SmartScreen. Verify the source and checksums; disabling protection is not required. Apache-2.0 source excludes private keys, settings, downloaded test media and build caches.
+- Android 8.0+: `FreeHDDownload-1.2.2-android.apk`, with the original package and signing certificate for in-place upgrades.
+- Windows 10/11 x64: extract the complete `FreeHDDownload-1.2.2-windows-x64.zip` and run `FreeHDDownload.exe`. Keep app/runtime directories beside it. Java is included.
+- Source: `FreeHDDownload-1.2.2-source.zip`, Apache-2.0. Checksums: `SHA256SUMS.txt`.
+
+### Validation
+
+Android compilation, alignment, v2/v3 signatures and certificate continuity passed. Core regression, real Xiaohongshu image saving, Bilibili QR generation/polling/decoding and Windows automatic parse/reset checks passed.
+
+Android on-device installation/saving, authenticated 1080p downloads and real HEVC muxing remain unverified end to end. Windows binaries do not have a commercial code-signing certificate. See VALIDATION.md for details.
+
+Ordinary links run locally without a project backend. Source and distributions exclude private keys, personal settings and downloaded test media.

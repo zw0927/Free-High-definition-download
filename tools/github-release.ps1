@@ -1,5 +1,8 @@
-param([switch]$CreateRepository, [switch]$PublishRelease, [long]$ResumeReleaseId = 0)
+param([switch]$CreateRepository, [switch]$PublishRelease, [long]$ResumeReleaseId = 0, [string]$Version = '1.2.2')
 $ErrorActionPreference = 'Stop'
+if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
+    throw 'Version must use major.minor.patch format.'
+}
 $projectDirectory = Split-Path -Parent $PSScriptRoot
 $repositoryName = 'Free-High-definition-download'
 $env:GIT_TERMINAL_PROMPT = '0'
@@ -34,10 +37,32 @@ if ($CreateRepository) {
     Write-Output ('Created: ' + $created.html_url)
 }
 if ($PublishRelease) {
+    $assets = @(('FreeHDDownload-' + $Version + '-android.apk'), ('FreeHDDownload-' + $Version + '-windows-x64.zip'), ('FreeHDDownload-' + $Version + '-source.zip'), 'SHA256SUMS.txt')
+    foreach ($asset in $assets) {
+        $file = Join-Path $projectDirectory ('release\' + $asset)
+        if (!(Test-Path -LiteralPath $file -PathType Leaf)) {
+            throw ('Release asset is missing: ' + $asset)
+        }
+    }
+    $checksumLines = Get-Content -LiteralPath (Join-Path $projectDirectory 'release\SHA256SUMS.txt')
+    foreach ($asset in $assets) {
+        if ($asset -eq 'SHA256SUMS.txt') {
+            continue
+        }
+        $hash = Get-FileHash -LiteralPath (Join-Path $projectDirectory ('release\' + $asset)) -Algorithm SHA256
+        $expected = $hash.Hash.ToLowerInvariant() + '  ' + $asset
+        if ($checksumLines -notcontains $expected) {
+            throw ('Release checksum does not match: ' + $asset)
+        }
+    }
+    $commit = git -c ('safe.directory=' + $projectDirectory.Replace('\', '/')) -C $projectDirectory rev-parse HEAD
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Cannot identify the release source commit.'
+    }
     $releaseBody = @{
-        tag_name = 'v1.2.1'
-        target_commitish = 'main'
-        name = 'v1.2.1 - Android + Windows'
+        tag_name = 'v' + $Version
+        target_commitish = $commit.Trim()
+        name = 'v' + $Version + ' - Original images and Bilibili HD login'
         body = [IO.File]::ReadAllText((Join-Path $projectDirectory 'docs\RELEASE_NOTES.md'))
         draft = $true
         prerelease = $false
@@ -47,14 +72,21 @@ if ($PublishRelease) {
         if (!$release.draft) {
             throw 'Resume is only supported for a draft release.'
         }
+        if ($release.tag_name -ne ('v' + $Version)) {
+            throw 'Draft release version does not match the requested version.'
+        }
     } else {
         $release = Invoke-RestMethod -Uri ('https://api.github.com/repos/' + $repositoryPath + '/releases') -Headers $headers -Method Post -ContentType 'application/json' -Body $releaseBody
     }
     $uploadBase = $release.upload_url -replace '\{.*$', ''
-    $assets = @('FreeHDDownload-1.2.1-android.apk', 'FreeHDDownload-1.2.1-windows-x64.zip', 'FreeHDDownload-1.2.1-source.zip', 'SHA256SUMS.txt')
     foreach ($asset in $assets) {
         $existing = $release.assets | Where-Object { $_.name -eq $asset -and $_.state -eq 'uploaded' }
         if ($existing) {
+            $localHash = Get-FileHash -LiteralPath (Join-Path $projectDirectory ('release\' + $asset)) -Algorithm SHA256
+            $expectedDigest = 'sha256:' + $localHash.Hash.ToLowerInvariant()
+            if ($existing.digest -ne $expectedDigest) {
+                throw ('Existing draft asset differs from the local file: ' + $asset)
+            }
             Write-Output ('Already uploaded: ' + $asset)
             continue
         }
@@ -66,6 +98,10 @@ if ($PublishRelease) {
             throw ('Asset upload failed: ' + $asset)
         }
         $uploaded = $response | ConvertFrom-Json
+        $localHash = Get-FileHash -LiteralPath $file -Algorithm SHA256
+        if ($uploaded.digest -ne ('sha256:' + $localHash.Hash.ToLowerInvariant())) {
+            throw ('Uploaded asset checksum does not match: ' + $asset)
+        }
         Write-Output ('Uploaded: ' + $uploaded.name + ' (' + $uploaded.size + ' bytes)')
     }
     $published = Invoke-RestMethod -Uri ('https://api.github.com/repos/' + $repositoryPath + '/releases/' + $release.id) -Headers $headers -Method Patch -ContentType 'application/json' -Body '{"draft":false}'

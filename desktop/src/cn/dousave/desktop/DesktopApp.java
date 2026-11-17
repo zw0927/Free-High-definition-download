@@ -65,6 +65,8 @@ public final class DesktopApp extends JFrame {
     private final JButton videoButton = button("保存视频", true);
     private final JButton imageButton = button("保存图片", true);
     private final JButton cancelButton = button("取消", false);
+    private final JButton biliAccount = button("B站登录", false);
+    private BiliLoginDialog loginDialog;
     private final JPanel result = new JPanel();
     private final JProgressBar progress = new JProgressBar();
     private final DefaultListModel<String> historyModel = new DefaultListModel<>();
@@ -153,6 +155,9 @@ public final class DesktopApp extends JFrame {
                     }
                 }
                 debounce.stop();
+                if (loginDialog != null) {
+                    loginDialog.dispose();
+                }
                 worker.shutdownNow();
                 dispose();
             }
@@ -170,7 +175,7 @@ public final class DesktopApp extends JFrame {
         brand.setFont(brand.getFont().deriveFont(Font.BOLD, 27));
         brand.setForeground(GREEN);
         heading.add(brand, BorderLayout.WEST);
-        heading.add(new JLabel("WINDOWS  /  1.2.1", JLabel.RIGHT), BorderLayout.EAST);
+        heading.add(new JLabel("WINDOWS  /  1.2.2", JLabel.RIGHT), BorderLayout.EAST);
         content.add(heading);
         content.add(Box.createVerticalStrut(22));
         content.add(new JLabel("分享链接 / 文章口令"));
@@ -203,6 +208,9 @@ public final class DesktopApp extends JFrame {
         actions.add(paste);
         actions.add(clear);
         actions.add(analyze);
+        biliAccount.addActionListener(event -> manageBiliAccount());
+        updateBiliAccount();
+        actions.add(biliAccount);
         content.add(actions);
         directory.setEditable(false);
         directory.setText(settings.getProperty("directory", Paths.get(System.getProperty("user.home"), "Downloads", "无水印下载").toString()));
@@ -374,6 +382,7 @@ public final class DesktopApp extends JFrame {
             task.cancel(true);
         }
         String share = input.getText();
+        String cookie = settings.getProperty("biliCookie", "");
         busy = true;
         info = null;
         result.setVisible(false);
@@ -381,7 +390,7 @@ public final class DesktopApp extends JFrame {
         status.setText("正在解析作品…");
         task = worker.submit(() -> {
             try {
-                VideoInfo parsed = new VideoResolver().resolve(share);
+                VideoInfo parsed = new VideoResolver(cookie).resolve(share);
                 SwingUtilities.invokeLater(() -> {
                     if (generation != token) {
                         return;
@@ -410,6 +419,9 @@ public final class DesktopApp extends JFrame {
                     busy = false;
                     analyze.setEnabled(true);
                     status.setText("已获取作品");
+                    if (!parsed.qualityMessage.isEmpty()) {
+                        status.setText(parsed.qualityMessage);
+                    }
                     revalidate();
                 });
             } catch (Exception error) {
@@ -473,6 +485,60 @@ public final class DesktopApp extends JFrame {
                 finishDownload(message);
             });
         });
+    }
+
+    private void updateBiliAccount() {
+        biliAccount.setText("B站登录");
+        if (!settings.getProperty("biliCookie", "").isEmpty()) {
+            biliAccount.setText("B站已登录");
+        }
+    }
+
+    private void manageBiliAccount() {
+        if (busy) {
+            message("请等待当前任务完成");
+            return;
+        }
+        if (!settings.getProperty("biliCookie", "").isEmpty()) {
+            Object[] options = new Object[] {"重新登录", "退出登录", "取消"};
+            int choice = JOptionPane.showOptionDialog(this, "管理B站登录状态", "B站账号",
+                JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null, options, options[0]);
+            if (choice < 0 || choice == 2) {
+                return;
+            }
+            if (!storeBiliCookie("")) {
+                return;
+            }
+            changed();
+            if (choice == 1) {
+                return;
+            }
+        }
+        if (loginDialog != null && loginDialog.isDisplayable()) {
+            loginDialog.toFront();
+            return;
+        }
+        loginDialog = new BiliLoginDialog(this, cookie -> {
+            if (storeBiliCookie(cookie)) {
+                status.setText("B站登录成功，正在刷新可用画质");
+                if (!input.getText().trim().isEmpty()) {
+                    resolve();
+                }
+            }
+        });
+        loginDialog.setVisible(true);
+    }
+
+    private boolean storeBiliCookie(String cookie) {
+        settings.setProperty("biliCookie", cookie);
+        updateBiliAccount();
+        try (java.io.OutputStream stream = Files.newOutputStream(dataDirectory.resolve("settings.properties"))) {
+            settings.store(stream, "Free HD Download");
+            return true;
+        } catch (Exception error) {
+            message("无法保存B站登录状态，请检查应用数据目录权限");
+            return false;
+        }
     }
 
     private void finishDownload(String message) {

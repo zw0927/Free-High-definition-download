@@ -36,6 +36,7 @@ public final class HttpClient {
 
     public Response request(String url, String method, String body, String referer, Map<String, String> headers) throws Exception {
         URL next = new URL(url);
+        String initialHost = next.getHost();
         for (int redirect = 0; redirect < 8; redirect++) {
             if (Thread.currentThread().isInterrupted()) {
                 throw new InterruptedException();
@@ -57,6 +58,9 @@ public final class HttpClient {
                 }
                 if (headers != null) {
                     for (Map.Entry<String, String> header : headers.entrySet()) {
+                        if (header.getKey().equalsIgnoreCase("Cookie") && !next.getHost().equalsIgnoreCase(initialHost)) {
+                            continue;
+                        }
                         connection.setRequestProperty(header.getKey(), header.getValue());
                     }
                 }

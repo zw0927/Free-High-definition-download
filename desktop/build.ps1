@@ -26,6 +26,7 @@ $dependencies = @(
     @{ Path = 'org/slf4j/slf4j-api/1.8.0-beta4/slf4j-api-1.8.0-beta4.jar'; Name = 'slf4j-api.jar' },
     @{ Path = 'org/slf4j/slf4j-nop/1.8.0-beta4/slf4j-nop-1.8.0-beta4.jar'; Name = 'slf4j-nop.jar' }
     @{ Path = 'com/formdev/flatlaf/3.6.2/flatlaf-3.6.2.jar'; Name = 'flatlaf.jar' }
+    @{ Path = 'com/google/zxing/core/3.5.3/core-3.5.3.jar'; Name = 'zxing.jar' }
 )
 foreach ($dependency in $dependencies) {
     $target = Join-Path $dependencyDirectory $dependency.Name
@@ -41,7 +42,7 @@ function Invoke-Checked {
         throw ('Windows build failed: ' + $Executable)
     }
 }
-$sharedNames = @('ShareLink', 'VideoInfo', 'HttpClient', 'NetworkPolicy', 'DouyinSigner', 'VideoResolver')
+$sharedNames = @('ShareLink', 'VideoInfo', 'HttpClient', 'NetworkPolicy', 'DouyinSigner', 'VideoResolver', 'BiliLogin')
 $sources = @()
 foreach ($name in $sharedNames) {
     $sources += Join-Path $projectDirectory ('src\cn\dousave\app\' + $name + '.java')
@@ -61,13 +62,13 @@ if (Test-Path -LiteralPath $appDirectory) {
     }
     Remove-Item -LiteralPath $resolvedApp -Recurse -Force
 }
-Invoke-Checked $Packager @('--type', 'app-image', '--name', 'FreeHDDownload', '--app-version', '1.2.1', '--vendor', 'Free HD Download contributors', '--input', $inputDirectory, '--main-jar', 'free-hd-download.jar', '--main-class', 'cn.dousave.desktop.DesktopApp', '--runtime-image', $runtime, '--dest', $outputDirectory, '--java-options', '-Dfile.encoding=UTF-8', '--temp', (Join-Path $workDirectory 'package-temp'))
+Invoke-Checked $Packager @('--type', 'app-image', '--name', 'FreeHDDownload', '--app-version', '1.2.2', '--vendor', 'Free HD Download contributors', '--input', $inputDirectory, '--main-jar', 'free-hd-download.jar', '--main-class', 'cn.dousave.desktop.DesktopApp', '--runtime-image', $runtime, '--dest', $outputDirectory, '--java-options', '-Dfile.encoding=UTF-8', '--temp', (Join-Path $workDirectory 'package-temp'))
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'README.txt') -Destination $appDirectory
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'LICENSE') -Destination $appDirectory
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'NOTICE') -Destination $appDirectory
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'assets\licenses') -Destination (Join-Path $appDirectory 'licenses') -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'assets\THIRD_PARTY_NOTICES.txt') -Destination $appDirectory
-$archive = Join-Path $projectDirectory 'release\FreeHDDownload-1.2.1-windows-x64.zip'
+$archive = Join-Path $projectDirectory 'release\FreeHDDownload-1.2.2-windows-x64.zip'
 Compress-Archive -Path $appDirectory -DestinationPath $archive -Force
 Get-FileHash -LiteralPath $archive -Algorithm SHA256
 Write-Output ('EXE: ' + (Join-Path $appDirectory 'FreeHDDownload.exe'))

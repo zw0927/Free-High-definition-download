@@ -27,6 +27,9 @@ Copyright 2008 CoreMedia AG and 2012 Sebastian Annies and contributors.
 https://github.com/sannies/mp4parser
 FlatLaf 3.6.2, Copyright FormDev Software GmbH, Apache-2.0.
 https://github.com/JFormDesigner/FlatLaf
+ZXing core 3.5.3, Copyright ZXing authors, Apache-2.0.
+https://github.com/zxing/zxing
+License: licenses/Apache-2.0.txt.
 JSON-java 20240303, Public Domain, https://github.com/stleary/JSON-java
 AspectJ runtime 1.9.7, EPL-2.0, https://github.com/eclipse-aspectj/aspectj
 SLF4J API and NOP 1.8.0-beta4, MIT, Copyright QOS.ch and contributors.
@@ -40,3 +43,7 @@ https://github.com/adoptium/temurin17-binaries/releases/tag/jdk-17.0.21%2B9
 https://github.com/openjdk/jdk17u/tree/jdk-17.0.21%2B9
 AspectJ source for the included runtime:
 https://github.com/eclipse-aspectj/aspectj/releases/tag/V1_9_7
+
+Xiaohongshu original-image CDN behavior was cross-checked against:
+https://github.com/JoeanAmier/XHS-Downloader/blob/master/source/application/image.py
+No source code or runtime from that project is bundled.

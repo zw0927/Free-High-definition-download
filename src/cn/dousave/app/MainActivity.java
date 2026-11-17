@@ -83,6 +83,8 @@ public final class MainActivity extends Activity {
     private boolean receiverRegistered;
     private boolean destroyed;
     private String pendingText = "";
+    private Button biliAccount;
+    private String activeBiliCookie = "";
 
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
@@ -201,6 +203,36 @@ public final class MainActivity extends Activity {
         addSpace(root, 12);
         status = text("等待链接", 14, MUTED, false);
         root.addView(status);
+        biliAccount = button("B站登录 · 获取高清画质", false);
+        biliAccount.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (downloading) {
+                    toast("请等待当前下载完成");
+                    return;
+                }
+                String cookie = getSharedPreferences("bili_account", MODE_PRIVATE).getString("cookie", "");
+                if (!cookie.isEmpty()) {
+                    new AlertDialog.Builder(MainActivity.this).setTitle("B站账号")
+                        .setItems(new String[] {"重新登录", "退出登录"}, new android.content.DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(android.content.DialogInterface dialog, int choice) {
+                                getSharedPreferences("bili_account", MODE_PRIVATE).edit().clear().apply();
+                                android.webkit.CookieManager.getInstance().removeAllCookies(null);
+                                updateBiliAccount();
+                                scheduleResolve();
+                                if (choice == 0) {
+                                    startActivity(new Intent(MainActivity.this, BiliLoginActivity.class));
+                                }
+                            }
+                        }).show();
+                } else {
+                    startActivity(new Intent(MainActivity.this, BiliLoginActivity.class));
+                }
+            }
+        });
+        root.addView(biliAccount, new LinearLayout.LayoutParams(-1, dp(46)));
+        updateBiliAccount();
 
         result = column();
         result.setVisibility(View.GONE);
@@ -406,7 +438,8 @@ public final class MainActivity extends Activity {
             @Override
             public void run() {
                 try {
-                    VideoInfo parsed = new VideoResolver().resolve(link);
+                    String cookie = getSharedPreferences("bili_account", MODE_PRIVATE).getString("cookie", "");
+                    VideoInfo parsed = new VideoResolver(cookie).resolve(link);
                     handler.post(new Runnable() {
                         @Override
                         public void run() {
@@ -495,6 +528,9 @@ public final class MainActivity extends Activity {
         status.setText("已获取作品");
         if (parsed.article) {
             status.setText("已获取文章正文");
+        }
+        if (!parsed.qualityMessage.isEmpty()) {
+            status.setText(parsed.qualityMessage);
         }
         cover.setImageDrawable(null);
         loadCover(parsed.cover, token);
@@ -795,6 +831,14 @@ public final class MainActivity extends Activity {
     @Override
     protected void onStart() {
         super.onStart();
+        String currentCookie = getSharedPreferences("bili_account", MODE_PRIVATE).getString("cookie", "");
+        if (!currentCookie.equals(activeBiliCookie)) {
+            activeBiliCookie = currentCookie;
+            if (!downloading && !input.getText().toString().trim().isEmpty()) {
+                scheduleResolve();
+            }
+        }
+        updateBiliAccount();
         IntentFilter filter = new IntentFilter(DownloadService.EVENT);
         if (Build.VERSION.SDK_INT >= 33) {
             registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
@@ -803,6 +847,17 @@ public final class MainActivity extends Activity {
         }
         receiverRegistered = true;
         refreshDownload();
+    }
+
+    private void updateBiliAccount() {
+        if (biliAccount == null) {
+            return;
+        }
+        String cookie = getSharedPreferences("bili_account", MODE_PRIVATE).getString("cookie", "");
+        biliAccount.setText("B站登录 · 获取高清画质");
+        if (!cookie.isEmpty()) {
+            biliAccount.setText("B站已登录 · 管理账号");
+        }
     }
 
     @Override
