@@ -1,4 +1,4 @@
-param([switch]$CreateRepository, [switch]$PublishRelease)
+param([switch]$CreateRepository, [switch]$PublishRelease, [long]$ResumeReleaseId = 0)
 $ErrorActionPreference = 'Stop'
 $projectDirectory = Split-Path -Parent $PSScriptRoot
 $repositoryName = 'Free-High-definition-download'
@@ -42,13 +42,30 @@ if ($PublishRelease) {
         draft = $true
         prerelease = $false
     } | ConvertTo-Json
-    $release = Invoke-RestMethod -Uri ('https://api.github.com/repos/' + $repositoryPath + '/releases') -Headers $headers -Method Post -ContentType 'application/json' -Body $releaseBody
+    if ($ResumeReleaseId -gt 0) {
+        $release = Invoke-RestMethod -Uri ('https://api.github.com/repos/' + $repositoryPath + '/releases/' + $ResumeReleaseId) -Headers $headers
+        if (!$release.draft) {
+            throw 'Resume is only supported for a draft release.'
+        }
+    } else {
+        $release = Invoke-RestMethod -Uri ('https://api.github.com/repos/' + $repositoryPath + '/releases') -Headers $headers -Method Post -ContentType 'application/json' -Body $releaseBody
+    }
     $uploadBase = $release.upload_url -replace '\{.*$', ''
     $assets = @('FreeHDDownload-1.2.1-android.apk', 'FreeHDDownload-1.2.1-windows-x64.zip', 'FreeHDDownload-1.2.1-source.zip', 'SHA256SUMS.txt')
     foreach ($asset in $assets) {
+        $existing = $release.assets | Where-Object { $_.name -eq $asset -and $_.state -eq 'uploaded' }
+        if ($existing) {
+            Write-Output ('Already uploaded: ' + $asset)
+            continue
+        }
         $file = Join-Path $projectDirectory ('release\' + $asset)
         $uri = $uploadBase + '?name=' + [Uri]::EscapeDataString($asset)
-        $uploaded = Invoke-RestMethod -Uri $uri -Headers $headers -Method Post -ContentType 'application/octet-stream' -InFile $file
+        $configuration = 'header = "Authorization: Bearer ' + $credential['password'] + '"'
+        $response = $configuration | curl.exe --config - --http1.1 --max-time 180 --retry 1 --fail-with-body --silent --show-error --request POST --header 'Content-Type: application/octet-stream' --data-binary ('@' + $file) $uri
+        if ($LASTEXITCODE -ne 0) {
+            throw ('Asset upload failed: ' + $asset)
+        }
+        $uploaded = $response | ConvertFrom-Json
         Write-Output ('Uploaded: ' + $uploaded.name + ' (' + $uploaded.size + ' bytes)')
     }
     $published = Invoke-RestMethod -Uri ('https://api.github.com/repos/' + $repositoryPath + '/releases/' + $release.id) -Headers $headers -Method Patch -ContentType 'application/json' -Body '{"draft":false}'
