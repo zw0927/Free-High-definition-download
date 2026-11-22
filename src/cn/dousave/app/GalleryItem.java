@@ -116,6 +116,8 @@ public final class GalleryItem {
             extension = ".png";
         } else if ("image/webp".equals(detectedMime)) {
             extension = ".webp";
+        } else if ("image/gif".equals(detectedMime)) {
+            extension = ".gif";
         } else if (!"image/jpeg".equals(detectedMime)) {
             throw new Exception("暂不支持这张图片的格式");
         }

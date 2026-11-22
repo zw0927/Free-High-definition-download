@@ -22,8 +22,8 @@ Save videos, images and text from supported public Douyin, Xiaohongshu and Bilib
 
 | 设备 | 安装包 | 使用方式 |
 | --- | --- | --- |
-| Android 8.0 及以上 | `FreeHDDownload-1.2.2-android.apk` | 下载并安装 APK；原“无水印下载”用户可覆盖升级 |
-| Windows 10 / 11 x64 | `FreeHDDownload-1.2.2-windows-x64.zip` | 完整解压，双击 `FreeHDDownload.exe`；无需安装 Java |
+| Android 8.0 及以上 | `FreeHDDownload-1.2.3-android.apk` | 下载并安装 APK；原“无水印下载”用户可覆盖升级 |
+| Windows 10 / 11 x64 | `FreeHDDownload-1.2.3-windows-x64.zip` | 完整解压，双击 `FreeHDDownload.exe`；无需安装 Java |
 | iPhone / iPad / macOS | 暂无 | 当前不提供这些系统的客户端或网页版 |
 
 Windows 请保留 EXE 旁边的 `app` 和 `runtime` 文件夹。便携版未购买商业代码签名证书，首次运行可能出现未知发布者或 SmartScreen 提示；请核对发布来源和校验和，不需要关闭系统防护。当前应用界面为中文。
@@ -32,6 +32,7 @@ Windows 请保留 EXE 旁边的 `app` 和 `runtime` 文件夹。便携版未购�
 
 - 抖音：普通视频、图集、文案和长文章；识别完整分享链接及支持的文章口令。
 - 小红书：公开视频原片、图文笔记、正文及封面；需保留完整分享参数。
+- 抖音和小红书图集支持实况图。点击“保存图片和实况”，动态部分以 MP4 保存；原生 GIF 和动态 WebP 保留原格式。
 - B站：普通 BV / av / b23.tv 链接和分P，本地合并视频与音频。
 - B站登录：Windows 扫码，Android 官方登录页；保留本机登录状态后获取账号可用画质。小红书图片使用原图 CDN，避免下载带平台水印的 H5 展示图。
 - 选择实际可用的画质，不放大低清视频冒充高清。
@@ -54,7 +55,7 @@ Windows 请保留 EXE 旁边的 `app` 和 `runtime` 文件夹。便携版未购�
 
 匿名访问经常只有 360P / 480P。登录后通常能获得普通 1080P，最终以账号权限和作品返回的视频轨道为准；1080P 高码率、4K 等档位可能需要相应会员权限。应用下载并直接合并平台视频与音频，不放大画面，也不能取得平台未公开提供的作者上传母版。
 
-1.2.2 提供 Android 签名 APK 与 Windows EXE 便携包，Android 沿用原包名与升级密钥。
+Android 发行包沿用原包名与升级密钥，Windows 提供 EXE 便携包。
 
 ### 平台限制
 
@@ -124,8 +125,8 @@ Get the current build from [GitHub Releases](https://github.com/zw0927/Free-High
 
 | Platform | Package | Installation |
 | --- | --- | --- |
-| Android 8.0+ | `FreeHDDownload-1.2.2-android.apk` | Install the APK; releases retain the original app package and signing key |
-| Windows 10 / 11 x64 | `FreeHDDownload-1.2.2-windows-x64.zip` | Extract everything and run `FreeHDDownload.exe`; Java is included |
+| Android 8.0+ | `FreeHDDownload-1.2.3-android.apk` | Install the APK; releases retain the original app package and signing key |
+| Windows 10 / 11 x64 | `FreeHDDownload-1.2.3-windows-x64.zip` | Extract everything and run `FreeHDDownload.exe`; Java is included |
 | iOS / iPadOS / macOS | Not available | No client or web version is currently provided |
 
 Keep the `app` and `runtime` folders beside the EXE. Windows builds are unsigned and may trigger SmartScreen. Verify release sources and checksums; disabling system protection is not required. The app interface is currently Chinese; this README is bilingual.
@@ -134,6 +135,7 @@ Keep the `app` and `runtime` folders beside the EXE. Windows builds are unsigned
 
 - Douyin public videos, photo posts, captions and articles, including supported URL-less article commands.
 - Xiaohongshu original video sources, photo posts, captions and covers when provided by the platform.
+- Douyin and Xiaohongshu Live Photo motion is saved as MP4. Native GIF and animated WebP files retain their original format.
 - Bilibili ordinary BV / av / b23.tv links, multipart selection and local audio/video muxing.
 - Version 1.2.2 adds optional Bilibili login for account-accessible quality and original Xiaohongshu image CDN sources instead of watermarked H5 display images.
 - Select available resolution, save media locally, copy captions and export UTF-8 TXT.
@@ -148,7 +150,7 @@ Text export controls appear after successful parsing. Articles retain Markdown h
 
 For Bilibili HD in 1.2.2, click `B站登录`. On Windows, scan the official QR using the Bilibili mobile app and confirm; Android opens the official login page. Parse the video again after login and choose an available quality. The session is retained locally and can be removed from the same account button. Expired sessions require login again. Anonymous playback may be limited to 360p/480p; ordinary 1080p generally requires login, while higher tiers may require membership. The app preserves the supplied streams without upscaling or re-encoding; the uploader's original master is not available unless the platform exposes it.
 
-Version 1.2.2 includes a signed Android APK and a Windows portable EXE package. Android retains the original application package and upgrade signing key.
+The release includes a signed Android APK and a Windows portable EXE package. Android retains the original application package and upgrade signing key.
 
 ### Limitations
 

@@ -1,5 +1,25 @@
 ## 中文
 
+### v1.2.3
+
+- 修复抖音和小红书实况图只保存静态封面的问题。图集中的实况视频保存为 MP4，静态图片保留原顺序。
+- 支持原生 GIF，动态 WebP 保留动画。跳过标有水印的实况地址，缺少可用动态源时显示提示。
+- 下载 Android 8.0+ 的 `FreeHDDownload-1.2.3-android.apk` 可覆盖升级。Windows 10/11 x64 请完整解压 `FreeHDDownload-1.2.3-windows-x64.zip` 后运行 `FreeHDDownload.exe`。
+- 抖音公开样例的 3 段实况 MP4 已通过完整解码。小红书实况使用模拟数据验证，安卓真机相册尚待验证。发行包校验值见 `SHA256SUMS.txt`。
+
+## English
+
+### v1.2.3
+
+- Save Live Photo motion as MP4 in mixed Douyin and Xiaohongshu galleries. Preserve the order of still images.
+- Save native GIF and animated WebP without re-encoding. Skip URLs explicitly flagged as watermarked and report unavailable motion sources.
+- Install the signed Android APK to upgrade in place. On Windows 10/11 x64, extract the full ZIP and run `FreeHDDownload.exe`.
+- Three motion clips from a public Douyin post passed full decoding. Xiaohongshu motion was covered by fixtures. Android gallery playback remains unverified on a physical device. See `SHA256SUMS.txt` for release checksums.
+
+---
+
+## 中文（历史版本）
+
 ### v1.2.2
 
 - 修复小红书图片中央平台水印：使用原图CDN，原图失败时不退回H5展示图。用户样例5张图片均实测下载为1440×2400。

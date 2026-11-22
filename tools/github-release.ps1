@@ -1,4 +1,4 @@
-param([switch]$CreateRepository, [switch]$PublishRelease, [long]$ResumeReleaseId = 0, [string]$Version = '1.2.2')
+param([switch]$CreateRepository, [switch]$PublishRelease, [long]$ResumeReleaseId = 0, [string]$Version = '1.2.3')
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
     throw 'Version must use major.minor.patch format.'
@@ -62,7 +62,7 @@ if ($PublishRelease) {
     $releaseBody = @{
         tag_name = 'v' + $Version
         target_commitish = $commit.Trim()
-        name = 'v' + $Version + ' - Original images and Bilibili HD login'
+        name = 'v' + $Version + ' - Live Photo downloads'
         body = [IO.File]::ReadAllText((Join-Path $projectDirectory 'docs\RELEASE_NOTES.md'))
         draft = $true
         prerelease = $false
@@ -93,7 +93,7 @@ if ($PublishRelease) {
         $file = Join-Path $projectDirectory ('release\' + $asset)
         $uri = $uploadBase + '?name=' + [Uri]::EscapeDataString($asset)
         $configuration = 'header = "Authorization: Bearer ' + $credential['password'] + '"'
-        $response = $configuration | curl.exe --config - --http1.1 --max-time 180 --retry 1 --fail-with-body --silent --show-error --request POST --header 'Content-Type: application/octet-stream' --data-binary ('@' + $file) $uri
+        $response = $configuration | curl.exe --config - --http1.1 --connect-timeout 15 --max-time 600 --fail-with-body --silent --show-error --request POST --header 'Content-Type: application/octet-stream' --header 'Expect:' --limit-rate 1M --data-binary ('@' + $file) $uri
         if ($LASTEXITCODE -ne 0) {
             throw ('Asset upload failed: ' + $asset)
         }

@@ -494,7 +494,7 @@ public final class MainActivity extends Activity {
         }
         if (!parsed.images.isEmpty()) {
             if (parsed.variants.isEmpty()) {
-                details += " · " + parsed.images.size() + " 张图片";
+                details += " · " + parsed.images.size() + " 项图集内容";
             }
         }
         author.setText(details);
@@ -511,6 +511,9 @@ public final class MainActivity extends Activity {
         if (!parsed.images.isEmpty()) {
             imagesDownload.setVisibility(View.VISIBLE);
             imagesDownload.setText("保存 " + parsed.images.size() + " 张图片到相册");
+            if (parsed.hasMotion()) {
+                imagesDownload.setText("保存图片和实况到相册");
+            }
             if (!parsed.variants.isEmpty()) {
                 imagesDownload.setText("保存封面到相册");
             }
@@ -531,6 +534,9 @@ public final class MainActivity extends Activity {
         }
         if (!parsed.qualityMessage.isEmpty()) {
             status.setText(parsed.qualityMessage);
+        }
+        if (!parsed.galleryNotice().isEmpty()) {
+            status.setText(parsed.galleryNotice());
         }
         cover.setImageDrawable(null);
         loadCover(parsed.cover, token);
@@ -650,8 +656,17 @@ public final class MainActivity extends Activity {
                 return;
             }
             JSONArray groups = new JSONArray();
-            for (ArrayList<String> urls : video.images) {
-                groups.put(new JSONArray(urls));
+            try {
+                for (VideoInfo.GalleryEntry entry : video.images) {
+                    JSONObject group = new JSONObject();
+                    group.put("urls", new JSONArray(entry.urls));
+                    group.put("motion", entry.motion);
+                    group.put("position", entry.position);
+                    groups.put(group);
+                }
+            } catch (org.json.JSONException error) {
+                toast("无法准备图集下载，请重新解析");
+                return;
             }
             intent.putExtra("images", groups.toString());
         } else {

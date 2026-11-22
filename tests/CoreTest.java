@@ -117,15 +117,24 @@ public final class CoreTest {
             .put("fileId", "spectrum/1040g34o327lg12566g505pj2pr23cul1hs42fj8")
             .put("url", "http://sns-webpic-qc.xhscdn.com/202611171623/e7c65a4f749135a81c3af77d769051ba/spectrum/1040g34o327lg12566g505pj2pr23cul1hs42fj8!h5_1080jpg")));
         VideoInfo photoNote = VideoResolver.parseXhs(mobileState, noteId);
-        check(photoNote.variants.isEmpty() && photoNote.images.size() == 1 && photoNote.images.get(0).size() == 3, "XHS photo post with original CDN backups");
-        check(photoNote.images.get(0).get(0).startsWith("https://") && photoNote.description.equals("Photo post text"), "Photo HTTPS and body text");
-        check(photoNote.images.get(0).get(0).equals("https://sns-img-qc.xhscdn.com/spectrum/1040g34o327lg12566g505pj2pr23cul1hs42fj8"), "XHS uses full-resolution original, not watermarked H5 image");
+        check(photoNote.variants.isEmpty() && photoNote.images.size() == 1 && photoNote.images.get(0).urls.size() == 3, "XHS photo post with original CDN backups");
+        check(photoNote.images.get(0).urls.get(0).startsWith("https://") && photoNote.description.equals("Photo post text"), "Photo HTTPS and body text");
+        check(photoNote.images.get(0).urls.get(0).equals("https://sns-img-qc.xhscdn.com/spectrum/1040g34o327lg12566g505pj2pr23cul1hs42fj8"), "XHS uses full-resolution original, not watermarked H5 image");
         JSONObject imageWithoutId = new JSONObject(note.getJSONArray("imageList").getJSONObject(0).toString());
         imageWithoutId.remove("fileId");
-        check(VideoResolver.xhsImageSources(imageWithoutId).equals(photoNote.images.get(0)), "XHS original key derived from signed webpic path when fileId is missing");
-        for (String address : photoNote.images.get(0)) {
+        check(VideoResolver.xhsImageSources(imageWithoutId).equals(photoNote.images.get(0).urls), "XHS original key derived from signed webpic path when fileId is missing");
+        for (String address : photoNote.images.get(0).urls) {
             check(!address.contains("!") && !address.contains("webpic"), "Never fall back to XHS watermarked transformations");
         }
+        org.json.JSONArray xhsGallery = note.getJSONArray("imageList");
+        xhsGallery.put(new JSONObject("{\"livePhoto\":true,\"fileId\":\"cover2\",\"stream\":{\"h264\":[{\"masterUrl\":\"https://sns-video-qc.xhscdn.com/live.mp4?watermark=1\",\"backupUrls\":[\"https://sns-video-bd.xhscdn.com/live.mp4\"]}]}}"));
+        xhsGallery.put(new JSONObject().put("livePhoto", true).put("fileId", "cover3"));
+        xhsGallery.put(new JSONObject().put("fileId", "image4"));
+        VideoInfo xhsMotion = VideoResolver.parseXhs(mobileState, noteId);
+        check(xhsMotion.hasMotion() && xhsMotion.images.size() == 3 && xhsMotion.unavailableMotionCount == 1, "Mixed XHS gallery preserves the live clip and reports an unavailable clip");
+        check(xhsMotion.images.get(1).position == 2 && xhsMotion.images.get(1).urls.size() == 1
+            && xhsMotion.images.get(1).urls.get(0).equals("https://sns-video-bd.xhscdn.com/live.mp4")
+            && xhsMotion.images.get(2).position == 4, "XHS selects the unmarked motion source and preserves gallery positions");
         rejected = false;
         try {
             VideoResolver.xhsImageSources(new JSONObject().put("fileId", "../private/file"));
@@ -143,6 +152,15 @@ public final class CoreTest {
             new org.json.JSONArray().put("http://example.invalid/douyin.webp"))));
         VideoInfo douyinPhotos = VideoInfo.parse(new JSONObject().put("aweme_detail", photoDetail).toString(), "7708260643380177914");
         check(douyinPhotos.images.size() == 1 && douyinPhotos.variants.isEmpty(), "Douyin photo post without video");
+        org.json.JSONArray douyinGallery = photoDetail.getJSONArray("images");
+        douyinGallery.put(new JSONObject("{\"video\":{\"play_addr\":{\"url_list\":[\"https://www.douyin.com/aweme/v1/playwm/?video_id=bad\",\"//v.douyinvod.com/live.mp4\"]}},\"url_list\":[\"https://example.invalid/cover.webp\"]}"));
+        douyinGallery.put(new JSONObject("{\"video\":{\"download_addr\":{\"url_list\":[\"https://www.douyin.com/aweme/v1/playwm/?video_id=bad\"]}},\"url_list\":[\"https://example.invalid/cover.webp\"]}"));
+        VideoInfo douyinMotion = VideoInfo.parse(new JSONObject().put("aweme_detail", photoDetail).toString(), "7708260643380177914");
+        check(douyinMotion.images.size() == 2 && !douyinMotion.images.get(0).motion && douyinMotion.hasMotion()
+            && douyinMotion.images.get(1).urls.equals(java.util.Collections.singletonList("https://v.douyinvod.com/live.mp4")),
+            "Douyin uses per-image motion playback and rejects a marked candidate");
+        check(douyinMotion.unavailableMotionCount == 1 && !douyinMotion.galleryNotice().isEmpty(),
+            "A Douyin unavailable motion item is reported rather than saved as a static cover");
         photoDetail.remove("images");
         VideoInfo textOnly = VideoInfo.parse(new JSONObject().put("aweme_detail", photoDetail).toString(), "7708260643380177914");
         check(textOnly.images.isEmpty() && textOnly.variants.isEmpty() && !textOnly.description.isEmpty(), "Text-only metadata");
@@ -173,11 +191,11 @@ public final class CoreTest {
         VideoInfo parsedArticle = VideoInfo.parse(articleJson, "7708260643380177914");
         check(parsedArticle.article && parsedArticle.variants.isEmpty(), "Article takes precedence over accompanying video");
         check(parsedArticle.title.equals("长文章标题") && parsedArticle.description.equals(fullBody), "Preserve full article rather than abstract or share text");
-        check(parsedArticle.images.size() == 1 && parsedArticle.images.get(0).get(0).equals("https://example.invalid/article.jpg"), "Extract article Markdown image without dimensions");
+        check(parsedArticle.images.size() == 1 && parsedArticle.images.get(0).urls.get(0).equals("https://example.invalid/article.jpg"), "Extract article Markdown image without dimensions");
         article.put("fe_data", new JSONObject().put("image_list", new org.json.JSONArray().put(new JSONObject()
             .put("origin_image_url", "https://example.invalid/original.jpg").put("markdown_url", "https://example.invalid/article.jpg"))).toString());
         parsedArticle = VideoInfo.parse(new JSONObject().put("aweme_detail", articleDetail).toString(), "7708260643380177914");
-        check(parsedArticle.images.size() == 1 && parsedArticle.images.get(0).size() == 2
+        check(parsedArticle.images.size() == 1 && parsedArticle.images.get(0).urls.size() == 2
             && parsedArticle.cover.equals("https://example.invalid/original.jpg"), "Prefer structured article original image with backup");
         article.put("article_content", new JSONObject().put("long_article_abstract", "摘要").toString());
         rejected = false;

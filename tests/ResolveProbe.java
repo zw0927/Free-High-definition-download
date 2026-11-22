@@ -32,8 +32,12 @@ public final class ResolveProbe {
                     download(best.audioUrls, video.referer, arguments[1] + ".audio.m4a");
                 }
             }
-            for (int index = 0; index < video.images.size(); index++) {
-                download(video.images.get(index), video.referer, arguments[1] + ".image-" + index);
+            for (VideoInfo.GalleryEntry entry : video.images) {
+                String extension = ".image";
+                if (entry.motion) {
+                    extension = ".motion.mp4";
+                }
+                download(entry.urls, video.referer, arguments[1] + "." + entry.position + extension);
             }
         }
     }

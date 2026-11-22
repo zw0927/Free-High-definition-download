@@ -62,13 +62,13 @@ if (Test-Path -LiteralPath $appDirectory) {
     }
     Remove-Item -LiteralPath $resolvedApp -Recurse -Force
 }
-Invoke-Checked $Packager @('--type', 'app-image', '--name', 'FreeHDDownload', '--app-version', '1.2.2', '--vendor', 'Free HD Download contributors', '--input', $inputDirectory, '--main-jar', 'free-hd-download.jar', '--main-class', 'cn.dousave.desktop.DesktopApp', '--runtime-image', $runtime, '--dest', $outputDirectory, '--java-options', '-Dfile.encoding=UTF-8', '--temp', (Join-Path $workDirectory 'package-temp'))
+Invoke-Checked $Packager @('--type', 'app-image', '--name', 'FreeHDDownload', '--app-version', '1.2.3', '--vendor', 'Free HD Download contributors', '--input', $inputDirectory, '--main-jar', 'free-hd-download.jar', '--main-class', 'cn.dousave.desktop.DesktopApp', '--runtime-image', $runtime, '--dest', $outputDirectory, '--java-options', '-Dfile.encoding=UTF-8', '--temp', (Join-Path $workDirectory 'package-temp'))
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'README.txt') -Destination $appDirectory
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'LICENSE') -Destination $appDirectory
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'NOTICE') -Destination $appDirectory
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'assets\licenses') -Destination (Join-Path $appDirectory 'licenses') -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'assets\THIRD_PARTY_NOTICES.txt') -Destination $appDirectory
-$archive = Join-Path $projectDirectory 'release\FreeHDDownload-1.2.2-windows-x64.zip'
+$archive = Join-Path $projectDirectory 'release\FreeHDDownload-1.2.3-windows-x64.zip'
 Compress-Archive -Path $appDirectory -DestinationPath $archive -Force
 Get-FileHash -LiteralPath $archive -Algorithm SHA256
 Write-Output ('EXE: ' + (Join-Path $appDirectory 'FreeHDDownload.exe'))

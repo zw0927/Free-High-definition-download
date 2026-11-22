@@ -256,6 +256,9 @@ public final class DownloadService extends Service {
                     throw new InterruptedException();
                 }
                 NetworkPolicy.check(next, true);
+                if (kind.equals("实况") && !VideoInfo.isUnmarkedUrl(next.toString())) {
+                    throw new Exception("平台返回了带水印的实况地址");
+                }
                 active = (HttpURLConnection) next.openConnection();
                 connection = active;
                 active.setInstanceFollowRedirects(false);
@@ -337,35 +340,69 @@ public final class DownloadService extends Service {
                 if (cancelled) {
                     throw new InterruptedException();
                 }
-                JSONArray group = groups.getJSONArray(index);
-                String[] urls = new String[group.length()];
-                for (int position = 0; position < group.length(); position++) {
-                    urls[position] = group.getString(position);
+                JSONObject entry = groups.optJSONObject(index);
+                boolean motion = false;
+                int position = index + 1;
+                JSONArray group;
+                if (entry == null) {
+                    group = groups.getJSONArray(index);
+                } else {
+                    group = entry.getJSONArray("urls");
+                    motion = entry.optBoolean("motion");
+                    position = entry.optInt("position", position);
                 }
-                GalleryItem item = new GalleryItem(this, baseName + "_" + (index + 1) + ".jpg", "image/jpeg");
+                String[] urls = new String[group.length()];
+                for (int urlIndex = 0; urlIndex < group.length(); urlIndex++) {
+                    urls[urlIndex] = group.getString(urlIndex);
+                }
+                String name = baseName + "_" + position;
+                String mime = "image/jpeg";
+                String kind = "图片";
+                String extension = ".jpg";
+                if (motion) {
+                    mime = "video/mp4";
+                    extension = ".mp4";
+                    kind = "实况";
+                }
+                GalleryItem item = new GalleryItem(this, name + extension, mime);
                 try {
-                    publish("running", "正在保存图片 " + (index + 1) + " / " + groups.length(), -1, "");
-                    receiveCandidates(urls, item, referer, "图片");
+                    publish("running", "正在保存" + kind + " " + (index + 1) + " / " + groups.length(), -1, "");
+                    receiveCandidates(urls, item, referer, kind);
                     android.graphics.BitmapFactory.Options options = new android.graphics.BitmapFactory.Options();
                     options.inJustDecodeBounds = true;
                     try (android.os.ParcelFileDescriptor file = item.descriptor(false)) {
-                        android.graphics.BitmapFactory.decodeFileDescriptor(file.getFileDescriptor(), null, options);
+                        if (motion) {
+                            MediaMetadataRetriever metadata = new MediaMetadataRetriever();
+                            try {
+                                metadata.setDataSource(file.getFileDescriptor());
+                                options.outWidth = Integer.parseInt(metadata.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));
+                                options.outHeight = Integer.parseInt(metadata.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT));
+                            } finally {
+                                metadata.release();
+                            }
+                        } else {
+                            android.graphics.BitmapFactory.decodeFileDescriptor(file.getFileDescriptor(), null, options);
+                            mime = options.outMimeType;
+                            item.imageType(mime);
+                        }
                     }
-                    item.imageType(options.outMimeType);
+                    if (cancelled) {
+                        throw new InterruptedException();
+                    }
                     item.commit();
                     completed += 1;
-                    remember(item.uri, currentTitle + " · " + (index + 1), options.outWidth, options.outHeight, options.outMimeType);
+                    remember(item.uri, currentTitle + " · " + position, options.outWidth, options.outHeight, mime);
                 } finally {
                     item.discard();
                 }
             }
         } catch (Exception error) {
             if (cancelled) {
-                throw new Exception("已取消，已保存 " + completed + " 张图片");
+                throw new Exception("已取消，已保存 " + completed + " 项");
             }
-            throw new Exception("已保存 " + completed + " 张图片，其余未完成：" + error.getMessage());
+            throw new Exception("已保存 " + completed + " 项，其余未完成：" + error.getMessage());
         }
-        String message = "已保存 " + completed + " 张图片到相册";
+        String message = "已保存 " + completed + " 项图集内容到相册";
         publish("complete", message, 100, "");
         stopForeground(STOP_FOREGROUND_REMOVE);
         getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, notification(message, 100, false, null));

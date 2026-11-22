@@ -175,7 +175,7 @@ public final class DesktopApp extends JFrame {
         brand.setFont(brand.getFont().deriveFont(Font.BOLD, 27));
         brand.setForeground(GREEN);
         heading.add(brand, BorderLayout.WEST);
-        heading.add(new JLabel("WINDOWS  /  1.2.2", JLabel.RIGHT), BorderLayout.EAST);
+        heading.add(new JLabel("WINDOWS  /  1.2.3", JLabel.RIGHT), BorderLayout.EAST);
         content.add(heading);
         content.add(Box.createVerticalStrut(22));
         content.add(new JLabel("分享链接 / 文章口令"));
@@ -415,12 +415,18 @@ public final class DesktopApp extends JFrame {
                     videoButton.setVisible(!parsed.variants.isEmpty());
                     imageButton.setVisible(!parsed.images.isEmpty());
                     imageButton.setText("保存图片（" + parsed.images.size() + "）");
+                    if (parsed.hasMotion()) {
+                        imageButton.setText("保存图片和实况（" + parsed.images.size() + "）");
+                    }
                     result.setVisible(true);
                     busy = false;
                     analyze.setEnabled(true);
                     status.setText("已获取作品");
                     if (!parsed.qualityMessage.isEmpty()) {
                         status.setText(parsed.qualityMessage);
+                    }
+                    if (!parsed.galleryNotice().isEmpty()) {
+                        status.setText(parsed.galleryNotice());
                     }
                     revalidate();
                 });

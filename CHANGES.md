@@ -1,5 +1,12 @@
 # 本轮修改文件
 
+## 1.2.3 抖音和小红书实况图
+
+- 解析与保存：`VideoInfo.java`、`VideoResolver.java`、`MainActivity.java`、`DownloadService.java`、`GalleryItem.java`、`DesktopApp.java`、`DesktopDownload.java`。
+- 测试：`tests/CoreTest.java`、`tests/ResolveProbe.java`。
+- 构建与发布：`AndroidManifest.xml`、`build.ps1`、`desktop/build.ps1`、`tools/package-release.ps1`、`tools/github-release.ps1`。
+- 文档：`README.md`、`desktop/README.txt`、`docs/RELEASE_NOTES.md`、`VALIDATION.md` 和本文件。
+
 ## 1.2.2 小红书原图与B站登录画质
 
 - 修改 `src/cn/dousave/app/VideoResolver.java`、`VideoInfo.java`：小红书图片与封面使用原图 CDN，禁止回退到 H5 展示图；B站请求使用可选登录凭据，并显示画质状态。

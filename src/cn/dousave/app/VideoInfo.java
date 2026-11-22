@@ -17,11 +17,44 @@ public final class VideoInfo {
     public String sourceLink = "";
     public String qualityMessage = "";
     public boolean article;
-    public final ArrayList<ArrayList<String>> images = new ArrayList<>();
+    public final ArrayList<GalleryEntry> images = new ArrayList<>();
+    public int unavailableMotionCount;
     public long duration;
     public String platform = "抖音";
     public String referer = "https://www.douyin.com/";
     public final List<Variant> variants = new ArrayList<>();
+
+    public static final class GalleryEntry {
+        public final ArrayList<String> urls;
+        public final boolean motion;
+        public final int position;
+
+        public GalleryEntry(ArrayList<String> urls, boolean motion, int position) {
+            this.urls = urls;
+            this.motion = motion;
+            this.position = position;
+        }
+    }
+
+    public void addStillImage(ArrayList<String> urls) {
+        images.add(new GalleryEntry(urls, false, images.size() + 1));
+    }
+
+    public boolean hasMotion() {
+        for (GalleryEntry entry : images) {
+            if (entry.motion) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public String galleryNotice() {
+        if (unavailableMotionCount == 0) {
+            return "";
+        }
+        return "平台未提供 " + unavailableMotionCount + " 张实况图的可用动态源";
+    }
 
     public static final class Variant {
         public int width;
@@ -79,24 +112,40 @@ public final class VideoInfo {
         }
         JSONArray images = detail.optJSONArray("images");
         if (images != null && images.length() > 0) {
+            info.cover = "";
             for (int index = 0; index < images.length(); index++) {
                 JSONObject image = images.optJSONObject(index);
-                if (image != null) {
-                    ArrayList<String> candidates = new ArrayList<>();
-                    JSONArray urls = image.optJSONArray("url_list");
-                    if (urls != null) {
-                        for (int urlIndex = 0; urlIndex < urls.length(); urlIndex++) {
-                            addImageUrl(candidates, urls.optString(urlIndex));
-                        }
-                    }
-                    if (!candidates.isEmpty()) {
-                        info.images.add(candidates);
+                if (image == null) {
+                    continue;
+                }
+                ArrayList<String> candidates = new ArrayList<>();
+                JSONArray urls = image.optJSONArray("url_list");
+                if (urls != null) {
+                    for (int urlIndex = 0; urlIndex < urls.length(); urlIndex++) {
+                        addUnmarkedUrl(candidates, urls.optString(urlIndex));
                     }
                 }
-            }
-            info.cover = "";
-            if (!info.images.isEmpty()) {
-                info.cover = info.images.get(0).get(0);
+                if (info.cover.isEmpty() && !candidates.isEmpty()) {
+                    info.cover = candidates.get(0);
+                }
+                JSONObject motion = image.optJSONObject("video");
+                if (motion != null || image.optBoolean("live_photo") || image.optInt("live_photo") == 1) {
+                    ArrayList<String> motionUrls = new ArrayList<>();
+                    if (motion != null) {
+                        for (Variant variant : videoVariants(motion)) {
+                            for (String url : variant.urls) {
+                                addUnmarkedUrl(motionUrls, url);
+                            }
+                        }
+                    }
+                    if (!motionUrls.isEmpty()) {
+                        info.images.add(new GalleryEntry(motionUrls, true, index + 1));
+                    } else {
+                        info.unavailableMotionCount += 1;
+                    }
+                } else if (!candidates.isEmpty()) {
+                    info.images.add(new GalleryEntry(candidates, false, index + 1));
+                }
             }
             return info;
         }
@@ -109,22 +158,31 @@ public final class VideoInfo {
         if (info.cover.isEmpty()) {
             info.cover = firstUrl(video.optJSONObject("cover"));
         }
+        info.variants.addAll(videoVariants(video));
+        if (info.variants.isEmpty()) {
+            throw new IllegalArgumentException("官方页面没有提供可用的无水印视频源");
+        }
+        return info;
+    }
+
+    private static List<Variant> videoVariants(JSONObject video) {
+        List<Variant> variants = new ArrayList<>();
+        if (video.optBoolean("is_drm") || video.optInt("is_drm") != 0) {
+            return variants;
+        }
         JSONArray rates = video.optJSONArray("bit_rate");
         HashSet<String> known = new HashSet<>();
         if (rates != null) {
             for (int index = 0; index < rates.length(); index++) {
                 JSONObject rate = rates.optJSONObject(index);
                 if (rate != null && !rate.optBoolean("is_drm") && rate.optInt("is_drm") == 0) {
-                    add(info, rate.optJSONObject("play_addr"), rate, video, known);
+                    add(variants, rate.optJSONObject("play_addr"), rate, video, known);
                 }
             }
         }
-        add(info, video.optJSONObject("play_addr"), new JSONObject(), video, known);
-        add(info, video.optJSONObject("play_addr_h264"), new JSONObject(), video, known);
-        if (info.variants.isEmpty()) {
-            throw new IllegalArgumentException("官方页面没有提供可用的无水印视频源");
-        }
-        Collections.sort(info.variants, new Comparator<Variant>() {
+        add(variants, video.optJSONObject("play_addr"), new JSONObject(), video, known);
+        add(variants, video.optJSONObject("play_addr_h264"), new JSONObject(), video, known);
+        Collections.sort(variants, new Comparator<Variant>() {
             @Override
             public int compare(Variant left, Variant right) {
                 long leftPixels = (long) left.width * left.height;
@@ -142,7 +200,7 @@ public final class VideoInfo {
                 return Long.compare(right.bitrate, left.bitrate);
             }
         });
-        return info;
+        return variants;
     }
 
     private static void parseArticle(VideoInfo info, JSONObject article) throws Exception {
@@ -194,7 +252,7 @@ public final class VideoInfo {
                 addImageUrl(sources, image.optString("high_image_url"));
                 addImageUrl(sources, image.optString("markdown_url"));
                 if (!sources.isEmpty()) {
-                    info.images.add(sources);
+                    info.addStillImage(sources);
                 }
             }
         }
@@ -206,12 +264,12 @@ public final class VideoInfo {
                 ArrayList<String> sources = new ArrayList<>();
                 addImageUrl(sources, images.group(1));
                 if (!sources.isEmpty() && known.add(sources.get(0))) {
-                    info.images.add(sources);
+                    info.addStillImage(sources);
                 }
             }
         }
         if (!info.images.isEmpty()) {
-            info.cover = info.images.get(0).get(0);
+            info.cover = info.images.get(0).urls.get(0);
         }
     }
 
@@ -227,7 +285,21 @@ public final class VideoInfo {
         }
     }
 
-    private static void add(VideoInfo info, JSONObject address, JSONObject rate, JSONObject video, HashSet<String> known) {
+    public static boolean isUnmarkedUrl(String url) {
+        String lower = url.toLowerCase(java.util.Locale.ROOT);
+        return !lower.contains("/playwm/") && !lower.contains("/playwm?")
+            && !lower.contains("watermark=1") && !lower.contains("watermark=true")
+            && !lower.contains("watermark=webp") && !lower.contains("watermark=gif")
+            && !lower.contains("!h5_1080jpg");
+    }
+
+    public static void addUnmarkedUrl(ArrayList<String> urls, String url) {
+        if (isUnmarkedUrl(url)) {
+            addImageUrl(urls, url);
+        }
+    }
+
+    private static void add(List<Variant> variants, JSONObject address, JSONObject rate, JSONObject video, HashSet<String> known) {
         if (address == null) {
             return;
         }
@@ -242,20 +314,10 @@ public final class VideoInfo {
         variant.bitrate = rate.optLong("bit_rate");
         variant.hevc = rate.optInt("is_h265") == 1 || rate.optInt("is_bytevc1") == 1;
         for (int index = 0; index < urls.length(); index++) {
-            String url = urls.optString(index);
-            if (url.startsWith("//")) {
-                url = "https:" + url;
-            }
-            if (url.startsWith("http://")) {
-                url = "https://" + url.substring(7);
-            }
-            // Watermarked download_addr/playwm streams are deliberately not used.
-            if (url.startsWith("https://") && !url.contains("/playwm/") && !url.contains("watermark=1") && !url.contains("watermark=webp")) {
-                variant.urls.add(url);
-            }
+            addUnmarkedUrl(variant.urls, urls.optString(index));
         }
         if (!variant.urls.isEmpty() && known.add(variant.urls.get(0))) {
-            info.variants.add(variant);
+            variants.add(variant);
         }
     }
 

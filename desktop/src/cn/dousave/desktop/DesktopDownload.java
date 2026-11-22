@@ -32,12 +32,12 @@ public final class DesktopDownload {
         if (images) {
             for (int index = 0; index < info.images.size(); index++) {
                 checkCancelled();
-                status.accept("正在下载图片 " + (index + 1) + " / " + info.images.size());
-                Path partial = Files.createTempFile(directory, ".fhd-image-", ".part");
+                VideoInfo.GalleryEntry entry = info.images.get(index);
+                status.accept("正在下载图集 " + (index + 1) + " / " + info.images.size());
+                Path partial = Files.createTempFile(directory, ".fhd-gallery-", ".part");
                 try {
-                    transfer(info.images.get(index), info.referer, partial, status);
-                    String extension = imageExtension(partial);
-                    Path target = uniquePath(directory, base + "_" + (index + 1), extension);
+                    String extension = transfer(entry.urls, info.referer, partial, status, entry);
+                    Path target = uniquePath(directory, base + "_" + entry.position, extension);
                     checkCancelled();
                     Files.move(partial, target);
                     completed.add(target);
@@ -84,6 +84,11 @@ public final class DesktopDownload {
 
     private static void transfer(List<String> sources, String referer, Path destination,
                                  Consumer<String> status) throws Exception {
+        transfer(sources, referer, destination, status, null);
+    }
+
+    private static String transfer(List<String> sources, String referer, Path destination,
+                                   Consumer<String> status, VideoInfo.GalleryEntry entry) throws Exception {
         Exception failure = new Exception("没有可用的下载地址");
         for (String source : sources) {
             checkCancelled();
@@ -92,6 +97,9 @@ public final class DesktopDownload {
                 for (int redirect = 0; redirect < 8; redirect++) {
                     checkCancelled();
                     NetworkPolicy.check(next, true);
+                    if (entry != null && entry.motion && !VideoInfo.isUnmarkedUrl(next.toString())) {
+                        throw new Exception("平台返回了带水印的实况地址");
+                    }
                     HttpURLConnection connection = (HttpURLConnection) next.openConnection();
                     connection.setInstanceFollowRedirects(false);
                     connection.setConnectTimeout(12000);
@@ -135,7 +143,14 @@ public final class DesktopDownload {
                         if (downloaded == 0 || expected > 0 && expected != downloaded) {
                             throw new Exception("下载文件不完整");
                         }
-                        return;
+                        if (entry == null) {
+                            return "";
+                        }
+                        if (entry.motion) {
+                            verifyMp4(destination);
+                            return ".mp4";
+                        }
+                        return imageExtension(destination);
                     } finally {
                         connection.disconnect();
                     }
@@ -251,20 +266,28 @@ public final class DesktopDownload {
         }
     }
 
-    private static String imageExtension(Path file) throws Exception {
+    static String imageExtension(Path file) throws Exception {
         byte[] header = new byte[12];
         try (InputStream input = Files.newInputStream(file)) {
-            if (input.read(header) >= 3 && (header[0] & 255) == 255 && (header[1] & 255) == 216) {
+            int length = input.readNBytes(header, 0, header.length);
+            if (length >= 3 && (header[0] & 255) == 255 && (header[1] & 255) == 216 && (header[2] & 255) == 255) {
                 return ".jpg";
+            }
+            if (length >= 6) {
+                String signature = new String(header, 0, 6, java.nio.charset.StandardCharsets.US_ASCII);
+                if (signature.equals("GIF87a") || signature.equals("GIF89a")) {
+                    return ".gif";
+                }
             }
         }
         if ((header[0] & 255) == 137 && header[1] == 'P' && header[2] == 'N' && header[3] == 'G') {
             return ".png";
         }
-        if (header[0] == 'R' && header[1] == 'I' && header[8] == 'W' && header[9] == 'E') {
+        if (header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F'
+            && header[8] == 'W' && header[9] == 'E' && header[10] == 'B' && header[11] == 'P') {
             return ".webp";
         }
-        throw new Exception("返回的文件不是支持的 JPEG、PNG 或 WebP 图片");
+        throw new Exception("返回的文件不是支持的 JPEG、PNG、GIF 或 WebP 图片");
     }
 
     public static String safeName(String title) {

@@ -50,7 +50,7 @@ if (!(Test-Path -LiteralPath $keystore)) {
 } elseif ([string]::IsNullOrEmpty($keystorePassword)) {
     throw 'Set FHD_KEYSTORE_PASSWORD to use an existing private signing key.'
 }
-$apk = Join-Path $outputDirectory '无水印下载-1.2.2.apk'
+$apk = Join-Path $outputDirectory '无水印下载-1.2.3.apk'
 Invoke-Checked (Join-Path $buildTools 'apksigner.bat') @('sign', '--v4-signing-enabled', 'false', '--ks', $keystore, '--ks-key-alias', 'dousave', '--ks-pass', ('pass:' + $keystorePassword), '--key-pass', ('pass:' + $keystorePassword), '--out', $apk, $aligned)
 Invoke-Checked (Join-Path $buildTools 'apksigner.bat') @('verify', '--verbose', $apk)
 Get-FileHash -LiteralPath $apk -Algorithm SHA256
