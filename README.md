@@ -23,7 +23,7 @@ Save videos, images and text from supported public Douyin, Xiaohongshu and Bilib
 | 设备 | 安装包 | 使用方式 |
 | --- | --- | --- |
 | Android 8.0 及以上 | `FreeHDDownload-1.2.4-android.apk` | 下载并安装 APK；原“无水印下载”用户可覆盖升级 |
-| Windows 10 / 11 x64 | `FreeHDDownload-1.2.4-windows-x64.zip` | 完整解压，双击 `FreeHDDownload.exe`；无需安装 Java |
+| Windows 10 / 11 x64 | `FreeHDDownload-1.2.4-windows-x64.zip` | 完整解压后，在 PowerShell 中运行 `Install-FreeHDDownload.ps1` 安装到当前用户，或运行便携版 EXE |
 | iPhone / iPad / macOS | 暂无 | 当前不提供这些系统的客户端或网页版 |
 
 Windows 请保留 EXE 旁边的 `app` 和 `runtime` 文件夹。便携版未购买商业代码签名证书，首次运行可能出现未知发布者或 SmartScreen 提示；请核对发布来源和校验和，不需要关闭系统防护。当前应用界面为中文。
@@ -130,7 +130,7 @@ Get the current build from [GitHub Releases](https://github.com/zw0927/Free-High
 | Platform | Package | Installation |
 | --- | --- | --- |
 | Android 8.0+ | `FreeHDDownload-1.2.4-android.apk` | Install the APK; releases retain the original app package and signing key |
-| Windows 10 / 11 x64 | `FreeHDDownload-1.2.4-windows-x64.zip` | Extract everything and run `FreeHDDownload.exe`; Java is included |
+| Windows 10 / 11 x64 | `FreeHDDownload-1.2.4-windows-x64.zip` | Extract the ZIP and run `Install-FreeHDDownload.ps1` in PowerShell for a per-user install, or run the portable EXE |
 | iOS / iPadOS / macOS | Not available | No client or web version is currently provided |
 
 Keep the `app` and `runtime` folders beside the EXE. Windows builds are unsigned and may trigger SmartScreen. Verify release sources and checksums; disabling system protection is not required. The app interface is currently Chinese; this README is bilingual.

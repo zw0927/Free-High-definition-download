@@ -2,8 +2,14 @@ Free HD Download / 无水印下载 1.2.4
 
 Windows 10/11 x64. Extract the entire ZIP, then run FreeHDDownload.exe.
 Keep the app and runtime folders next to the EXE. No Java installation required.
+If Windows denies writes from the extracted location, run Install-FreeHDDownload.ps1
+from the extracted folder in PowerShell. It installs for your account under
+%LOCALAPPDATA%\Programs\FreeHDDownload and creates a desktop shortcut.
 
 将整个 ZIP 解压后，双击 FreeHDDownload.exe；不要单独移动 EXE。
+如果从解压目录运行时无法写入桌面或下载目录，请在解压目录的 PowerShell 中运行
+.\Install-FreeHDDownload.ps1。程序将安装到当前用户的 %LOCALAPPDATA%\Programs，
+并创建桌面快捷方式。也可将整个 FreeHDDownload 文件夹复制到该目录后启动 EXE。
 粘贴抖音、小红书或 B站分享链接，等待解析，选择目录与画质后保存。
 文章支持复制和 UTF-8 TXT；图集可批量保存。
 普通链接在电脑本地解析和下载；无网址的抖音口令使用公共转换服务。

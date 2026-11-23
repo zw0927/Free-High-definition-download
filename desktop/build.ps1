@@ -78,6 +78,7 @@ if (Test-Path -LiteralPath $appDirectory) {
 }
 Invoke-Checked $Packager @('--type', 'app-image', '--name', 'FreeHDDownload', '--app-version', '1.2.4', '--vendor', 'Free HD Download contributors', '--input', $inputDirectory, '--main-jar', 'free-hd-download.jar', '--main-class', 'cn.dousave.desktop.DesktopApp', '--runtime-image', $runtime, '--dest', $outputDirectory, '--java-options', '-Dfile.encoding=UTF-8', '--temp', (Join-Path $workDirectory 'package-temp'))
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'README.txt') -Destination $appDirectory
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Install-FreeHDDownload.ps1') -Destination $appDirectory
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'LICENSE') -Destination $appDirectory
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'NOTICE') -Destination $appDirectory
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'assets\licenses') -Destination (Join-Path $appDirectory 'licenses') -Recurse -Force

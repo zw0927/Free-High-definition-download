@@ -2,6 +2,7 @@
 
 ### v1.2.4
 
+- Windows ZIP 增加当前用户安装脚本。电脑拒绝从解压目录运行的程序写入桌面时，可安装到本地应用目录并通过桌面快捷方式启动。
 - Windows 补丁：使用资源管理器打开下载目录。下载前检查目标目录能否写入，并提示如何处理目录错误。
 - 修复小红书原生 `live_photo.media.stream` 数据结构未识别：现在支持 camelCase 与 snake_case 字段及主/备用视频地址。
 - 小红书和抖音实况均保存静态照片及同序号动态 MP4；无动态源时保留静态照片并提示。
@@ -17,6 +18,7 @@
 
 ### v1.2.4
 
+- The Windows ZIP includes a per-user installer for PCs that restrict writes from the extracted location.
 - Windows patch: Open the download folder in File Explorer. Check the destination before downloading and provide a recovery message for directory errors.
 - Parse Xiaohongshu native `live_photo.media.stream` as well as camelCase responses, including primary and backup motion URLs.
 - Save the still photo and matching motion MP4 for Xiaohongshu and Douyin Live Photos. Preserve the still and report when motion is unavailable.
