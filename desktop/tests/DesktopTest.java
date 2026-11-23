@@ -5,6 +5,7 @@ import cn.dousave.app.VideoResolver;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -25,6 +26,7 @@ public final class DesktopTest {
         check(!DesktopDownload.safeName("title:/\\?*").contains(":"), "Forbidden filename characters");
         Path output = Paths.get(arguments[0]);
         Files.createDirectories(output);
+        verifyUnavailableDirectory(output);
         VideoInfo video = new VideoResolver().resolve("https://v.douyin.com/RQtMd_5ce00/");
         List<Path> saved = DesktopDownload.save(video, 0, false, output, System.out::println);
         check(Files.size(saved.get(0)) > 10000, "Real Douyin download");
@@ -109,6 +111,21 @@ public final class DesktopTest {
             }
         });
         System.out.println("Desktop checks passed.");
+    }
+
+    private static void verifyUnavailableDirectory(Path output) throws Exception {
+        Path blocked = Files.createTempFile(output, "not-a-directory-", ".tmp");
+        try {
+            DesktopDownload.saveDetailed(new VideoInfo(), 0, true, blocked, message -> {
+                throw new AssertionError("Download started before validating its directory");
+            });
+            throw new AssertionError("A path pointing to a file was accepted as a download directory");
+        } catch (IOException expected) {
+            check(expected.getMessage().contains("选择目录") && expected.getMessage().contains(blocked.toString()),
+                "Unavailable destination reports the selected directory and recovery action");
+        } finally {
+            Files.deleteIfExists(blocked);
+        }
     }
 
     private static boolean visibleButton(Container container, String label) {

@@ -4,11 +4,13 @@ import cn.dousave.app.HttpClient;
 import cn.dousave.app.ImageMedia;
 import cn.dousave.app.NetworkPolicy;
 import cn.dousave.app.VideoInfo;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.channels.FileChannel;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -45,7 +47,7 @@ public final class DesktopDownload {
 
     public static DownloadResult saveDetailed(VideoInfo info, int selected, boolean images, Path directory,
                                               Consumer<String> status) throws Exception {
-        Files.createDirectories(directory);
+        prepareDestination(directory);
         List<Path> completed = new ArrayList<>();
         List<String> failures = new ArrayList<>();
         int silentMotionCount = 0;
@@ -119,6 +121,23 @@ public final class DesktopDownload {
             if (merged != null) {
                 Files.deleteIfExists(merged);
             }
+        }
+    }
+
+    private static void prepareDestination(Path directory) throws IOException {
+        try {
+            Files.createDirectories(directory);
+            Path probe = Files.createTempFile(directory, ".fhd-write-check-", ".part");
+            try {
+                Files.write(probe, new byte[] {0}, StandardOpenOption.WRITE);
+            } finally {
+                Files.deleteIfExists(probe);
+            }
+        } catch (AccessDeniedException | SecurityException denied) {
+            throw new IOException("应用无法写入所选目录 " + directory + "。请点击“选择目录”，换一个可写的文件夹。", denied);
+        } catch (IOException error) {
+            throw new IOException("无法使用所选目录 " + directory + "。请点击“选择目录”后重试。"
+                + "（" + error.getMessage() + "）", error);
         }
     }
 

@@ -18,6 +18,7 @@ import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -317,12 +318,14 @@ public final class DesktopApp extends JFrame {
         open.addActionListener(event -> openHistory());
         JButton folder = button("打开下载目录", false);
         folder.addActionListener(event -> {
+            String destination = directory.getText();
             try {
-                Path path = Paths.get(directory.getText());
-                Files.createDirectories(path);
-                Desktop.getDesktop().open(path.toFile());
+                openDownloadFolder(Paths.get(destination));
             } catch (Exception error) {
-                message("无法打开目录：" + error.getMessage());
+                JTextField directoryPath = new JTextField(destination, 35);
+                directoryPath.setEditable(false);
+                Object[] dialogContent = new Object[] {"无法打开下载目录。可复制下方路径到资源管理器。", directoryPath};
+                JOptionPane.showMessageDialog(this, dialogContent, "无水印下载", JOptionPane.INFORMATION_MESSAGE);
             }
         });
         files.add(open);
@@ -349,6 +352,22 @@ public final class DesktopApp extends JFrame {
             public void removeUpdate(DocumentEvent event) { changed(); }
             public void changedUpdate(DocumentEvent event) { changed(); }
         });
+    }
+
+    static void openDownloadFolder(Path directory) throws IOException {
+        Path path = directory.toAbsolutePath().normalize();
+        Files.createDirectories(path);
+        String windowsDirectory = System.getenv("SystemRoot");
+        if (windowsDirectory == null || windowsDirectory.isBlank()) {
+            throw new IOException("找不到 Windows 资源管理器");
+        }
+        Path explorer = Paths.get(windowsDirectory, "explorer.exe");
+        String folder = path.toString();
+        if (path.equals(path.getRoot())) {
+            folder += ".";
+        }
+        // Explorer treats an unquoted comma as an argument separator.
+        new ProcessBuilder(explorer.toString(), "\"" + folder + "\"").start();
     }
 
     private void changed() {
@@ -480,17 +499,21 @@ public final class DesktopApp extends JFrame {
                         addHistory(selected.title, path);
                     }
                 });
-                outcome = "已保存到本地 · " + result.files.size() + " 个文件";
-                if (result.silentMotionCount > 0) {
-                    outcome += "；" + result.silentMotionCount + " 段实况源无音轨，已静音保存";
-                }
-                if (!result.failures.isEmpty()) {
-                    outcome += "；" + result.failures.size() + " 个文件失败（" + result.failures.get(0) + "）";
+                if (result.files.isEmpty() && !result.failures.isEmpty()) {
+                    outcome = "下载失败 · " + result.failures.size() + " 个文件未保存（" + result.failures.get(0) + "）";
+                } else {
+                    outcome = "已保存到本地 · " + result.files.size() + " 个文件";
+                    if (result.silentMotionCount > 0) {
+                        outcome += "；" + result.silentMotionCount + " 段实况源无音轨，已静音保存";
+                    }
+                    if (!result.failures.isEmpty()) {
+                        outcome += "；" + result.failures.size() + " 个文件失败（" + result.failures.get(0) + "）";
+                    }
                 }
             } catch (CancellationException error) {
                 outcome = "已取消；已完成的图片保留";
             } catch (Exception error) {
-                outcome = "下载失败：" + error.getMessage() + "；已完成的图片保留";
+                outcome = "下载失败：" + error.getMessage();
             }
             String message = outcome;
             SwingUtilities.invokeLater(() -> {
