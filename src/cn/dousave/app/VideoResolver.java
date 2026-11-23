@@ -215,7 +215,7 @@ public final class VideoResolver {
                 note = container.getJSONObject("data").optJSONObject("noteData");
             }
         }
-        if (note == null || !id.equals(note.optString("noteId"))) {
+        if (note == null || !id.equals(note.optString("noteId", note.optString("note_id")))) {
             throw new Exception("小红书链接已失效或缺少访问参数，请重新复制完整分享链接");
         }
         JSONObject video = note.optJSONObject("video");
@@ -235,6 +235,9 @@ public final class VideoResolver {
         }
         info.cover = "";
         JSONArray images = note.optJSONArray("imageList");
+        if (images == null) {
+            images = note.optJSONArray("images_list");
+        }
         if (video == null || !note.optString("type", "video").equals("video")) {
             if (images != null) {
                 for (int index = 0; index < images.length(); index++) {
@@ -243,27 +246,24 @@ public final class VideoResolver {
                         continue;
                     }
                     ArrayList<String> motionUrls = xhsMotionSources(image);
-                    boolean livePhoto = image.optBoolean("livePhoto") || !motionUrls.isEmpty();
+                    boolean livePhoto = image.optBoolean("livePhoto") || image.optJSONObject("livePhoto") != null
+                        || image.optBoolean("live_photo") || image.optJSONObject("live_photo") != null || !motionUrls.isEmpty();
+                    try {
+                        ArrayList<String> candidates = xhsImageSources(image);
+                        if (info.cover.isEmpty()) {
+                            info.cover = candidates.get(0);
+                        }
+                        info.addStillImage(candidates, index + 1);
+                    } catch (Exception error) {
+                        if (!livePhoto) {
+                            throw error;
+                        }
+                    }
                     if (livePhoto) {
                         if (motionUrls.isEmpty()) {
                             info.unavailableMotionCount += 1;
                         } else {
-                            info.images.add(new VideoInfo.GalleryEntry(motionUrls, true, index + 1));
-                        }
-                    }
-                    if (!livePhoto || info.cover.isEmpty()) {
-                        try {
-                            ArrayList<String> candidates = xhsImageSources(image);
-                            if (info.cover.isEmpty()) {
-                                info.cover = candidates.get(0);
-                            }
-                            if (!livePhoto) {
-                                info.images.add(new VideoInfo.GalleryEntry(candidates, false, index + 1));
-                            }
-                        } catch (Exception error) {
-                            if (!livePhoto) {
-                                throw error;
-                            }
+                            info.addMotion(motionUrls, index + 1);
                         }
                     }
                 }
@@ -317,12 +317,25 @@ public final class VideoResolver {
 
     public static ArrayList<String> xhsImageSources(JSONObject image) throws Exception {
         ArrayList<String> sources = new ArrayList<>();
-        String key = image.optString("fileId");
+        String key = image.optString("fileId", image.optString("file_id"));
         if (key.isEmpty()) {
-            String address = image.optString("urlDefault", image.optString("url"));
+            String address = image.optString("urlDefault", image.optString("url_default",
+                image.optString("urlPre", image.optString("url_pre", image.optString("url")))));
             JSONArray alternatives = image.optJSONArray("infoList");
-            if (address.isEmpty() && alternatives != null && alternatives.optJSONObject(0) != null) {
-                address = alternatives.getJSONObject(0).optString("url");
+            if (alternatives == null) {
+                alternatives = image.optJSONArray("info_list");
+            }
+            if (address.isEmpty() && alternatives != null) {
+                for (int index = 0; index < alternatives.length(); index++) {
+                    JSONObject alternative = alternatives.optJSONObject(index);
+                    if (alternative == null) {
+                        continue;
+                    }
+                    address = alternative.optString("url");
+                    if (!address.isEmpty()) {
+                        break;
+                    }
+                }
             }
             if (!address.isEmpty()) {
                 URI uri = URI.create(address);
@@ -350,9 +363,25 @@ public final class VideoResolver {
         return sources;
     }
 
-    private static ArrayList<String> xhsMotionSources(JSONObject image) {
+    public static ArrayList<String> xhsMotionSources(JSONObject image) {
+        return collectXhsMotionSources(image);
+    }
+
+    private static ArrayList<String> collectXhsMotionSources(JSONObject image) {
         ArrayList<String> urls = new ArrayList<>();
         JSONObject streams = image.optJSONObject("stream");
+        JSONObject livePhoto = image.optJSONObject("livePhoto");
+        if (livePhoto == null) {
+            livePhoto = image.optJSONObject("live_photo");
+        }
+        if (livePhoto != null) {
+            JSONObject media = livePhoto.optJSONObject("media");
+            if (media != null && media.optJSONObject("stream") != null) {
+                streams = media.optJSONObject("stream");
+            } else if (livePhoto.optJSONObject("stream") != null) {
+                streams = livePhoto.optJSONObject("stream");
+            }
+        }
         if (streams == null) {
             return urls;
         }
@@ -367,12 +396,15 @@ public final class VideoResolver {
                     continue;
                 }
                 JSONArray backups = track.optJSONArray("backupUrls");
+                if (backups == null) {
+                    backups = track.optJSONArray("backup_urls");
+                }
+                VideoInfo.addUnmarkedUrl(urls, track.optString("masterUrl", track.optString("master_url")));
                 if (backups != null) {
                     for (int position = 0; position < backups.length(); position++) {
                         VideoInfo.addUnmarkedUrl(urls, backups.optString(position));
                     }
                 }
-                VideoInfo.addUnmarkedUrl(urls, track.optString("masterUrl"));
             }
         }
         return urls;

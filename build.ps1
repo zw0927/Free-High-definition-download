@@ -13,6 +13,7 @@ foreach ($directory in @($buildDirectory, $outputDirectory, $signingDirectory)) 
 }
 $env:JAVA_HOME = 'C:\Program Files\Java\jdk-17'
 $env:PATH = $javaDirectory + ';' + $env:PATH
+$manifest = Join-Path $projectDirectory 'AndroidManifest.xml'
 
 function Invoke-Checked {
     param([string]$Executable, [string[]]$Arguments)
@@ -23,11 +24,31 @@ function Invoke-Checked {
 }
 
 $resourceZip = Join-Path $buildDirectory 'resources.zip'
-Invoke-Checked (Join-Path $buildTools 'aapt2.exe') @('compile', '--dir', (Join-Path $projectDirectory 'res'), '-o', $resourceZip)
-$generated = Join-Path $buildDirectory 'generated'
-New-Item -ItemType Directory -Path $generated -Force | Out-Null
 $unsigned = Join-Path $buildDirectory 'unsigned.apk'
-Invoke-Checked (Join-Path $buildTools 'aapt2.exe') @('link', '-o', $unsigned, '-I', $androidJar, '--manifest', (Join-Path $projectDirectory 'AndroidManifest.xml'), '--java', $generated, '-A', (Join-Path $projectDirectory 'assets'), $resourceZip)
+$generated = Join-Path $buildDirectory 'generated-aapt2'
+New-Item -ItemType Directory -Path $generated -Force | Out-Null
+$aapt2 = Join-Path $buildTools 'aapt2.exe'
+& $aapt2 compile '--dir' (Join-Path $projectDirectory 'res') '-o' $resourceZip
+$resourceCompileExit = $LASTEXITCODE
+$resourceLinkExit = 1
+if ($resourceCompileExit -eq 0) {
+    & $aapt2 link '-o' $unsigned '-I' $androidJar '--manifest' $manifest '--java' $generated '-A' (Join-Path $projectDirectory 'assets') $resourceZip
+    $resourceLinkExit = $LASTEXITCODE
+}
+if ($resourceCompileExit -ne 0 -or $resourceLinkExit -ne 0) {
+    Write-Warning 'aapt2 could not start or link resources; retrying with the installed legacy AAPT resource packager.'
+    $aapt = Join-Path $buildTools 'aapt.exe'
+    if (!(Test-Path -LiteralPath $aapt)) {
+        throw 'Both Android resource packagers are unavailable.'
+    }
+    $unsigned = Join-Path $buildDirectory 'unsigned-legacy.apk'
+    $generated = Join-Path $buildDirectory 'generated-legacy'
+    New-Item -ItemType Directory -Path $generated -Force | Out-Null
+    Invoke-Checked $aapt @('package', '-f', '-m', '-M', $manifest,
+        '-S', (Join-Path $projectDirectory 'res'), '-I', $androidJar, '-A', (Join-Path $projectDirectory 'assets'),
+        '-F', $unsigned, '-J', $generated, '--min-sdk-version', '26', '--target-sdk-version', '35',
+        '--version-code', '7', '--version-name', '1.2.4')
+}
 $classes = Join-Path $buildDirectory 'classes'
 New-Item -ItemType Directory -Path $classes -Force | Out-Null
 $sources = @(Get-ChildItem -LiteralPath (Join-Path $projectDirectory 'src'), $generated -Recurse -Filter '*.java' | ForEach-Object { $_.FullName })
@@ -50,7 +71,7 @@ if (!(Test-Path -LiteralPath $keystore)) {
 } elseif ([string]::IsNullOrEmpty($keystorePassword)) {
     throw 'Set FHD_KEYSTORE_PASSWORD to use an existing private signing key.'
 }
-$apk = Join-Path $outputDirectory '无水印下载-1.2.3.apk'
+$apk = Join-Path $outputDirectory 'FreeHDDownload-1.2.4-android.apk'
 Invoke-Checked (Join-Path $buildTools 'apksigner.bat') @('sign', '--v4-signing-enabled', 'false', '--ks', $keystore, '--ks-key-alias', 'dousave', '--ks-pass', ('pass:' + $keystorePassword), '--key-pass', ('pass:' + $keystorePassword), '--out', $apk, $aligned)
 Invoke-Checked (Join-Path $buildTools 'apksigner.bat') @('verify', '--verbose', $apk)
 Get-FileHash -LiteralPath $apk -Algorithm SHA256

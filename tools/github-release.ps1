@@ -1,7 +1,14 @@
-param([switch]$CreateRepository, [switch]$PublishRelease, [long]$ResumeReleaseId = 0, [string]$Version = '1.2.3')
+param([switch]$CreateRepository, [switch]$PreviewRelease, [switch]$PublishRelease,
+      [switch]$MakePublic, [long]$ResumeReleaseId = 0, [string]$Version = '1.2.4')
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
     throw 'Version must use major.minor.patch format.'
+}
+if ($PreviewRelease -and ($PublishRelease -or $CreateRepository)) {
+    throw 'PreviewRelease is read-only and cannot be combined with write actions.'
+}
+if ($MakePublic -and !$PublishRelease) {
+    throw 'MakePublic requires PublishRelease.'
 }
 $projectDirectory = Split-Path -Parent $PSScriptRoot
 $repositoryName = 'Free-High-definition-download'
@@ -36,6 +43,29 @@ if ($CreateRepository) {
     $created = Invoke-RestMethod -Uri 'https://api.github.com/user/repos' -Headers $headers -Method Post -ContentType 'application/json' -Body $body
     Write-Output ('Created: ' + $created.html_url)
 }
+if ($PreviewRelease) {
+    $previewAssets = @(('FreeHDDownload-' + $Version + '-android.apk'), ('FreeHDDownload-' + $Version + '-windows-x64.zip'), ('FreeHDDownload-' + $Version + '-source.zip'), 'SHA256SUMS.txt')
+    $checksumLines = Get-Content -LiteralPath (Join-Path $projectDirectory 'release\SHA256SUMS.txt')
+    foreach ($asset in $previewAssets) {
+        $file = Join-Path $projectDirectory ('release\' + $asset)
+        if (!(Test-Path -LiteralPath $file -PathType Leaf)) {
+            throw ('Preview asset is missing: ' + $asset)
+        }
+        if ($asset -ne 'SHA256SUMS.txt') {
+            $hash = Get-FileHash -LiteralPath $file -Algorithm SHA256
+            if ($checksumLines -notcontains ($hash.Hash.ToLowerInvariant() + '  ' + $asset)) {
+                throw ('Preview checksum does not match: ' + $asset)
+            }
+        }
+        Write-Output ($asset + '  ' + (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant())
+    }
+    $previewCommit = git -c ('safe.directory=' + $projectDirectory.Replace('\', '/')) -C $projectDirectory rev-parse HEAD
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Cannot identify the preview source commit.'
+    }
+    Write-Output ('Read-only release preview; commit=' + $previewCommit.Trim() + '; no GitHub changes were made.')
+    exit 0
+}
 if ($PublishRelease) {
     $assets = @(('FreeHDDownload-' + $Version + '-android.apk'), ('FreeHDDownload-' + $Version + '-windows-x64.zip'), ('FreeHDDownload-' + $Version + '-source.zip'), 'SHA256SUMS.txt')
     foreach ($asset in $assets) {
@@ -43,6 +73,16 @@ if ($PublishRelease) {
         if (!(Test-Path -LiteralPath $file -PathType Leaf)) {
             throw ('Release asset is missing: ' + $asset)
         }
+    }
+    if ($PreviewRelease) {
+        Write-Output ('Verified release preview for v' + $Version + '; no GitHub changes made.')
+        Write-Output ('Commit: ' + (git -c ('safe.directory=' + $projectDirectory.Replace('\', '/')) -C $projectDirectory rev-parse HEAD))
+        foreach ($asset in $assets) {
+            $file = Join-Path $projectDirectory ('release\' + $asset)
+            $hash = Get-FileHash -LiteralPath $file -Algorithm SHA256
+            Write-Output ($asset + '  ' + $hash.Hash.ToLowerInvariant())
+        }
+        exit 0
     }
     $checksumLines = Get-Content -LiteralPath (Join-Path $projectDirectory 'release\SHA256SUMS.txt')
     foreach ($asset in $assets) {
@@ -62,7 +102,7 @@ if ($PublishRelease) {
     $releaseBody = @{
         tag_name = 'v' + $Version
         target_commitish = $commit.Trim()
-        name = 'v' + $Version + ' - Live Photo downloads'
+        name = 'v' + $Version + ' - Live Photo and image format fixes'
         body = [IO.File]::ReadAllText((Join-Path $projectDirectory 'docs\RELEASE_NOTES.md'))
         draft = $true
         prerelease = $false
@@ -76,7 +116,36 @@ if ($PublishRelease) {
             throw 'Draft release version does not match the requested version.'
         }
     } else {
-        $release = Invoke-RestMethod -Uri ('https://api.github.com/repos/' + $repositoryPath + '/releases') -Headers $headers -Method Post -ContentType 'application/json' -Body $releaseBody
+        try {
+            $release = Invoke-RestMethod -Uri ('https://api.github.com/repos/' + $repositoryPath + '/releases/tags/v' + $Version) -Headers $headers
+            if (!$release.draft) {
+                throw ('Version v' + $Version + ' is already published and will not be overwritten.')
+            }
+            Write-Output ('Resuming existing draft: ' + $release.html_url)
+        } catch {
+            $statusCode = 0
+            if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+                $statusCode = [int]$_.Exception.Response.StatusCode
+            }
+            if ($statusCode -ne 404) {
+                throw
+            }
+            try {
+                $reference = Invoke-RestMethod -Uri ('https://api.github.com/repos/' + $repositoryPath + '/git/ref/tags/v' + $Version) -Headers $headers
+                if ($reference) {
+                    throw ('Git tag v' + $Version + ' already exists without a reusable draft release.')
+                }
+            } catch {
+                $referenceStatus = 0
+                if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+                    $referenceStatus = [int]$_.Exception.Response.StatusCode
+                }
+                if ($referenceStatus -ne 404) {
+                    throw
+                }
+            }
+            $release = Invoke-RestMethod -Uri ('https://api.github.com/repos/' + $repositoryPath + '/releases') -Headers $headers -Method Post -ContentType 'application/json' -Body $releaseBody
+        }
     }
     $uploadBase = $release.upload_url -replace '\{.*$', ''
     foreach ($asset in $assets) {
@@ -104,6 +173,10 @@ if ($PublishRelease) {
         }
         Write-Output ('Uploaded: ' + $uploaded.name + ' (' + $uploaded.size + ' bytes)')
     }
-    $published = Invoke-RestMethod -Uri ('https://api.github.com/repos/' + $repositoryPath + '/releases/' + $release.id) -Headers $headers -Method Patch -ContentType 'application/json' -Body '{"draft":false}'
-    Write-Output ('Release: ' + $published.html_url)
+    if ($MakePublic) {
+        $published = Invoke-RestMethod -Uri ('https://api.github.com/repos/' + $repositoryPath + '/releases/' + $release.id) -Headers $headers -Method Patch -ContentType 'application/json' -Body '{"draft":false}'
+        Write-Output ('Published release: ' + $published.html_url)
+    } else {
+        Write-Output ('Draft release assets uploaded and SHA256-verified; it remains private until explicitly confirmed: ' + $release.html_url)
+    }
 }

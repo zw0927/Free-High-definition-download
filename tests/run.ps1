@@ -19,6 +19,7 @@ $sources = @(
     (Join-Path $PSScriptRoot 'CoreTest.java'),
     (Join-Path $PSScriptRoot 'ResolveProbe.java')
 )
+$sources += Join-Path $projectDirectory 'src\cn\dousave\app\ImageMedia.java'
 & (Join-Path $javaDirectory 'javac.exe') -encoding UTF-8 -cp $dependency -d $testDirectory @sources
 if ($LASTEXITCODE -ne 0) {
     throw 'Core test compilation failed.'

@@ -1,6 +1,7 @@
 package cn.dousave.desktop;
 
 import cn.dousave.app.HttpClient;
+import cn.dousave.app.ImageMedia;
 import cn.dousave.app.NetworkPolicy;
 import cn.dousave.app.VideoInfo;
 import java.io.InputStream;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.function.Consumer;
 import org.mp4parser.Container;
+import org.mp4parser.IsoFile;
 import org.mp4parser.muxer.Movie;
 import org.mp4parser.muxer.Track;
 import org.mp4parser.muxer.builder.DefaultMp4Builder;
@@ -26,26 +28,64 @@ public final class DesktopDownload {
 
     public static List<Path> save(VideoInfo info, int selected, boolean images, Path directory,
                                   Consumer<String> status) throws Exception {
+        return saveDetailed(info, selected, images, directory, status).files;
+    }
+
+    public static final class DownloadResult {
+        public final List<Path> files;
+        public final int silentMotionCount;
+        public final List<String> failures;
+
+        private DownloadResult(List<Path> files, int silentMotionCount, List<String> failures) {
+            this.files = files;
+            this.silentMotionCount = silentMotionCount;
+            this.failures = failures;
+        }
+    }
+
+    public static DownloadResult saveDetailed(VideoInfo info, int selected, boolean images, Path directory,
+                                              Consumer<String> status) throws Exception {
         Files.createDirectories(directory);
         List<Path> completed = new ArrayList<>();
+        List<String> failures = new ArrayList<>();
+        int silentMotionCount = 0;
         String base = safeName(info.title);
         if (images) {
             for (int index = 0; index < info.images.size(); index++) {
                 checkCancelled();
                 VideoInfo.GalleryEntry entry = info.images.get(index);
                 status.accept("正在下载图集 " + (index + 1) + " / " + info.images.size());
-                Path partial = Files.createTempFile(directory, ".fhd-gallery-", ".part");
+                Path partial = null;
                 try {
+                    partial = Files.createTempFile(directory, ".fhd-gallery-", ".part");
                     String extension = transfer(entry.urls, info.referer, partial, status, entry);
-                    Path target = uniquePath(directory, base + "_" + entry.position, extension);
+                    boolean silent = entry.motion && !hasAudioTrack(partial);
+                    String suffix = "";
+                    if (entry.motion) {
+                        suffix = "_motion";
+                    }
+                    Path target = uniquePath(directory, base + "_" + entry.position + suffix, extension);
                     checkCancelled();
                     Files.move(partial, target);
                     completed.add(target);
+                    if (silent) {
+                        silentMotionCount += 1;
+                    }
+                } catch (CancellationException error) {
+                    throw error;
+                } catch (Exception error) {
+                    String kind = "图片";
+                    if (entry.motion) {
+                        kind = "实况";
+                    }
+                    failures.add("第 " + entry.position + " 项" + kind + "：" + error.getMessage());
                 } finally {
-                    Files.deleteIfExists(partial);
+                    if (partial != null) {
+                        Files.deleteIfExists(partial);
+                    }
                 }
             }
-            return completed;
+            return new DownloadResult(completed, silentMotionCount, failures);
         }
         VideoInfo.Variant variant = info.variants.get(selected);
         Path video = Files.createTempFile(directory, ".fhd-video-", ".part");
@@ -70,7 +110,7 @@ public final class DesktopDownload {
             Path target = uniquePath(directory, base, ".mp4");
             Files.move(finished, target);
             completed.add(target);
-            return completed;
+            return new DownloadResult(completed, 0, failures);
         } finally {
             Files.deleteIfExists(video);
             if (audio != null) {
@@ -266,28 +306,40 @@ public final class DesktopDownload {
         }
     }
 
-    static String imageExtension(Path file) throws Exception {
-        byte[] header = new byte[12];
-        try (InputStream input = Files.newInputStream(file)) {
-            int length = input.readNBytes(header, 0, header.length);
-            if (length >= 3 && (header[0] & 255) == 255 && (header[1] & 255) == 216 && (header[2] & 255) == 255) {
-                return ".jpg";
+    static boolean hasAudioTrack(Path file) throws Exception {
+        boolean hasVideo = false;
+        boolean hasAudio = false;
+        try (IsoFile movie = new IsoFile(file.toFile())) {
+            if (movie.getMovieBox() == null) {
+                throw new Exception("实况文件缺少 MP4 媒体信息，未保存");
             }
-            if (length >= 6) {
-                String signature = new String(header, 0, 6, java.nio.charset.StandardCharsets.US_ASCII);
-                if (signature.equals("GIF87a") || signature.equals("GIF89a")) {
-                    return ".gif";
+            for (org.mp4parser.boxes.iso14496.part12.TrackBox track : movie.getMovieBox()
+                .getBoxes(org.mp4parser.boxes.iso14496.part12.TrackBox.class)) {
+                org.mp4parser.boxes.iso14496.part12.MediaBox media = track.getMediaBox();
+                if (media == null || media.getHandlerBox() == null || track.getSampleTableBox() == null
+                    || track.getSampleTableBox().getSampleSizeBox() == null) {
+                    continue;
+                }
+                String handler = media.getHandlerBox().getHandlerType();
+                long sampleCount = track.getSampleTableBox().getSampleSizeBox().getSampleCount();
+                if ("vide".equals(handler) && sampleCount > 0) {
+                    hasVideo = true;
+                }
+                if ("soun".equals(handler) && sampleCount > 0) {
+                    hasAudio = true;
                 }
             }
         }
-        if ((header[0] & 255) == 137 && header[1] == 'P' && header[2] == 'N' && header[3] == 'G') {
-            return ".png";
+        if (!hasVideo) {
+            throw new Exception("实况文件缺少有效视频轨，未保存");
         }
-        if (header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F'
-            && header[8] == 'W' && header[9] == 'E' && header[10] == 'B' && header[11] == 'P') {
-            return ".webp";
+        return hasAudio;
+    }
+
+    static String imageExtension(Path file) throws Exception {
+        try (InputStream input = Files.newInputStream(file)) {
+            return ImageMedia.detect(input).extension;
         }
-        throw new Exception("返回的文件不是支持的 JPEG、PNG、GIF 或 WebP 图片");
     }
 
     public static String safeName(String title) {

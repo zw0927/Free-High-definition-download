@@ -175,7 +175,7 @@ public final class DesktopApp extends JFrame {
         brand.setFont(brand.getFont().deriveFont(Font.BOLD, 27));
         brand.setForeground(GREEN);
         heading.add(brand, BorderLayout.WEST);
-        heading.add(new JLabel("WINDOWS  /  1.2.3", JLabel.RIGHT), BorderLayout.EAST);
+        heading.add(new JLabel("WINDOWS  /  1.2.4", JLabel.RIGHT), BorderLayout.EAST);
         content.add(heading);
         content.add(Box.createVerticalStrut(22));
         content.add(new JLabel("分享链接 / 文章口令"));
@@ -416,7 +416,7 @@ public final class DesktopApp extends JFrame {
                     imageButton.setVisible(!parsed.images.isEmpty());
                     imageButton.setText("保存图片（" + parsed.images.size() + "）");
                     if (parsed.hasMotion()) {
-                        imageButton.setText("保存图片和实况（" + parsed.images.size() + "）");
+                        imageButton.setText("保存静态照片和动态视频（" + parsed.images.size() + " 项）");
                     }
                     result.setVisible(true);
                     busy = false;
@@ -473,14 +473,20 @@ public final class DesktopApp extends JFrame {
         task = worker.submit(() -> {
             String outcome;
             try {
-                List<Path> saved = DesktopDownload.save(selected, selectedQuality, images, destination,
+                DesktopDownload.DownloadResult result = DesktopDownload.saveDetailed(selected, selectedQuality, images, destination,
                     text -> SwingUtilities.invokeLater(() -> status.setText(text)));
                 SwingUtilities.invokeLater(() -> {
-                    for (Path path : saved) {
+                    for (Path path : result.files) {
                         addHistory(selected.title, path);
                     }
                 });
-                outcome = "已保存到本地 · " + saved.size() + " 个文件";
+                outcome = "已保存到本地 · " + result.files.size() + " 个文件";
+                if (result.silentMotionCount > 0) {
+                    outcome += "；" + result.silentMotionCount + " 段实况源无音轨，已静音保存";
+                }
+                if (!result.failures.isEmpty()) {
+                    outcome += "；" + result.failures.size() + " 个文件失败（" + result.failures.get(0) + "）";
+                }
             } catch (CancellationException error) {
                 outcome = "已取消；已完成的图片保留";
             } catch (Exception error) {

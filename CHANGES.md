@@ -1,5 +1,26 @@
 # 本轮修改文件
 
+## 1.2.4 修复实况配对、图片格式及无声提示
+
+- 修改 `VideoResolver.java`、`VideoInfo.java`：解析小红书 camelCase 与 native snake_case 实况结构；每个实况同时保存静态照片和动态 MP4，并按原图集序号配对。
+- 新增 `ImageMedia.java`：按魔数识别 JPEG、PNG、GIF、WebP、HEIC、HEIF 和 AVIF，保留源格式。
+- 修改 `GalleryItem.java`、`DownloadService.java`：识别/登记原 MIME 与扩展名；分析实况音视频轨道，保存静音 MP4 并显示提示。
+- 修改 `DesktopDownload.java`、`DesktopApp.java`：Windows 静态+动态成对下载、实况音轨检查和图片格式识别。
+- 修改 `tests/CoreTest.java`、`tests/run.ps1`：添加图片格式、两种平台 mixed gallery、snake_case、序号和水印源过滤回归。
+- 修改 Android/Windows 构建版本和 GitHub 发布工具。发布默认保留草稿，使用 `-MakePublic` 公开。
+- 修改 `README.md`、`VALIDATION.md`、`docs/RELEASE_NOTES.md`、Windows README。
+
+## 1.2.4 修复实况配对、图片格式及无声提示
+
+- 修改 `VideoResolver.java`、`VideoInfo.java`：小红书、抖音实况条目同时加入静态照片和动态视频，按原作品序号成对保存。
+- 新增 `ImageMedia.java`：按文件签名识别 JPEG、PNG、GIF、WebP、HEIC、HEIF、AVIF，保留原始编码。
+- 修改 `GalleryItem.java`、`DownloadService.java`：保留新图片 MIME/扩展名，绕过设备位图解码器不支持时的静态图拒绝；检查实况视频轨道并提示无音轨源。
+- 修改 `DesktopDownload.java`、`DesktopApp.java`：Windows 原格式图片识别、实况视频轨检查及静音完成提示。
+- 修改 `tests/CoreTest.java`、`tests/run.ps1`：补充图片签名、静态/动态配对、原顺序、过滤水印源和缺失动态源回归。
+- 修改构建、版本和中英说明文件；Android versionCode 7、versionName 1.2.4。
+- Windows 构建可指定系统 JDK 编译并继续打包既有 Temurin runtime；Android aapt2 初始化失败时回退到同一 SDK 的 legacy AAPT。GitHub 发布脚本默认只上传草稿，需显式使用 MakePublic 才会公开。
+- v1.2.4 提供 Android APK、Windows 便携 ZIP、源码 ZIP 和 SHA256 校验清单。
+
 ## 1.2.3 抖音和小红书实况图
 
 - 解析与保存：`VideoInfo.java`、`VideoResolver.java`、`MainActivity.java`、`DownloadService.java`、`GalleryItem.java`、`DesktopApp.java`、`DesktopDownload.java`。

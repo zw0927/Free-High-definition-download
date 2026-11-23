@@ -40,6 +40,14 @@ public final class VideoInfo {
         images.add(new GalleryEntry(urls, false, images.size() + 1));
     }
 
+    public void addStillImage(ArrayList<String> urls, int position) {
+        images.add(new GalleryEntry(urls, false, position));
+    }
+
+    public void addMotion(ArrayList<String> urls, int position) {
+        images.add(new GalleryEntry(urls, true, position));
+    }
+
     public boolean hasMotion() {
         for (GalleryEntry entry : images) {
             if (entry.motion) {
@@ -53,7 +61,7 @@ public final class VideoInfo {
         if (unavailableMotionCount == 0) {
             return "";
         }
-        return "平台未提供 " + unavailableMotionCount + " 张实况图的可用动态源";
+            return "平台未提供 " + unavailableMotionCount + " 张实况图的可用动态源；对应静态照片仍会保存";
     }
 
     public static final class Variant {
@@ -120,6 +128,9 @@ public final class VideoInfo {
                 }
                 ArrayList<String> candidates = new ArrayList<>();
                 JSONArray urls = image.optJSONArray("url_list");
+                if (urls == null) {
+                    urls = image.optJSONArray("urlList");
+                }
                 if (urls != null) {
                     for (int urlIndex = 0; urlIndex < urls.length(); urlIndex++) {
                         addUnmarkedUrl(candidates, urls.optString(urlIndex));
@@ -128,23 +139,64 @@ public final class VideoInfo {
                 if (info.cover.isEmpty() && !candidates.isEmpty()) {
                     info.cover = candidates.get(0);
                 }
+                if (!candidates.isEmpty()) {
+                    info.addStillImage(candidates, index + 1);
+                }
                 JSONObject motion = image.optJSONObject("video");
+                if (motion == null) {
+                    motion = image.optJSONObject("livePhoto");
+                }
+                if (motion == null) {
+                    motion = image.optJSONObject("live_photo");
+                }
+                if (motion != null) {
+                    JSONObject media = motion.optJSONObject("media");
+                    if (media != null && media.optJSONObject("stream") != null) {
+                        motion = new JSONObject().put("stream", media.getJSONObject("stream"));
+                    } else if (motion.optJSONObject("stream") != null) {
+                        motion = new JSONObject().put("stream", motion.getJSONObject("stream"));
+                    }
+                }
                 if (motion != null || image.optBoolean("live_photo") || image.optInt("live_photo") == 1) {
                     ArrayList<String> motionUrls = new ArrayList<>();
                     if (motion != null) {
-                        for (Variant variant : videoVariants(motion)) {
+                        List<Variant> directVariants = videoVariants(motion);
+                        for (Variant variant : directVariants) {
                             for (String url : variant.urls) {
                                 addUnmarkedUrl(motionUrls, url);
                             }
                         }
+                        JSONArray motionRates = motion.optJSONArray("bit_rate");
+                        if (motionRates != null) {
+                            for (int rateIndex = 0; rateIndex < motionRates.length(); rateIndex++) {
+                                JSONObject rate = motionRates.optJSONObject(rateIndex);
+                                if (rate != null && !rate.optBoolean("is_drm") && rate.optInt("is_drm") == 0) {
+                                    addMotionAddress(motionUrls, rate.optJSONObject("play_addr"));
+                                }
+                            }
+                        }
+                        JSONObject motionStreams = motion.optJSONObject("stream");
+                        if (motionStreams != null) {
+                            for (String codec : new String[] {"h264", "h265", "av1"}) {
+                                JSONArray tracks = motionStreams.optJSONArray(codec);
+                                if (tracks == null) {
+                                    continue;
+                                }
+                                for (int trackIndex = 0; trackIndex < tracks.length(); trackIndex++) {
+                                    JSONObject track = tracks.optJSONObject(trackIndex);
+                                    if (track != null) {
+                                        VideoInfo.addUnmarkedUrl(motionUrls, track.optString("masterUrl",
+                                            track.optString("master_url")));
+                                    }
+                                }
+                            }
+                        }
                     }
                     if (!motionUrls.isEmpty()) {
-                        info.images.add(new GalleryEntry(motionUrls, true, index + 1));
+                        info.addMotion(motionUrls, index + 1);
                     } else {
                         info.unavailableMotionCount += 1;
                     }
-                } else if (!candidates.isEmpty()) {
-                    info.images.add(new GalleryEntry(candidates, false, index + 1));
                 }
             }
             return info;
@@ -296,6 +348,21 @@ public final class VideoInfo {
     public static void addUnmarkedUrl(ArrayList<String> urls, String url) {
         if (isUnmarkedUrl(url)) {
             addImageUrl(urls, url);
+        }
+    }
+
+    private static void addMotionAddress(ArrayList<String> urls, JSONObject address) {
+        if (address == null) {
+            return;
+        }
+        JSONArray candidates = address.optJSONArray("url_list");
+        if (candidates == null) {
+            candidates = address.optJSONArray("urlList");
+        }
+        if (candidates != null) {
+            for (int index = 0; index < candidates.length(); index++) {
+                addUnmarkedUrl(urls, candidates.optString(index));
+            }
         }
     }
 

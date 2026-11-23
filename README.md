@@ -22,8 +22,8 @@ Save videos, images and text from supported public Douyin, Xiaohongshu and Bilib
 
 | 设备 | 安装包 | 使用方式 |
 | --- | --- | --- |
-| Android 8.0 及以上 | `FreeHDDownload-1.2.3-android.apk` | 下载并安装 APK；原“无水印下载”用户可覆盖升级 |
-| Windows 10 / 11 x64 | `FreeHDDownload-1.2.3-windows-x64.zip` | 完整解压，双击 `FreeHDDownload.exe`；无需安装 Java |
+| Android 8.0 及以上 | `FreeHDDownload-1.2.4-android.apk` | 下载并安装 APK；原“无水印下载”用户可覆盖升级 |
+| Windows 10 / 11 x64 | `FreeHDDownload-1.2.4-windows-x64.zip` | 完整解压，双击 `FreeHDDownload.exe`；无需安装 Java |
 | iPhone / iPad / macOS | 暂无 | 当前不提供这些系统的客户端或网页版 |
 
 Windows 请保留 EXE 旁边的 `app` 和 `runtime` 文件夹。便携版未购买商业代码签名证书，首次运行可能出现未知发布者或 SmartScreen 提示；请核对发布来源和校验和，不需要关闭系统防护。当前应用界面为中文。
@@ -32,7 +32,9 @@ Windows 请保留 EXE 旁边的 `app` 和 `runtime` 文件夹。便携版未购�
 
 - 抖音：普通视频、图集、文案和长文章；识别完整分享链接及支持的文章口令。
 - 小红书：公开视频原片、图文笔记、正文及封面；需保留完整分享参数。
-- 抖音和小红书图集支持实况图。点击“保存图片和实况”，动态部分以 MP4 保存；原生 GIF 和动态 WebP 保留原格式。
+- 抖音和小红书图集支持实况图。选择“保存静态照片和动态视频”，照片与 MP4 按原顺序配对保存；原生 GIF 和动态 WebP 保留原格式。
+- 实况图同时保存静态照片与同序号动态 MP4；若动态视频没有音轨，保留静音 MP4 并提示。
+- 图片依据文件签名识别 JPEG、PNG、GIF、WebP、HEIC、HEIF 和 AVIF，按原格式保存。
 - B站：普通 BV / av / b23.tv 链接和分P，本地合并视频与音频。
 - B站登录：Windows 扫码，Android 官方登录页；保留本机登录状态后获取账号可用画质。小红书图片使用原图 CDN，避免下载带平台水印的 H5 展示图。
 - 选择实际可用的画质，不放大低清视频冒充高清。
@@ -47,6 +49,8 @@ Windows 请保留 EXE 旁边的 `app` 和 `runtime` 文件夹。便携版未购�
 3. 解析成功后检查标题和作者。视频选择画质，图集选择保存图片，文章选择复制正文或保存 TXT。
 4. Android 在相册“无水印下载”文件夹查看媒体；Windows 在所选目录查看，也可从最近下载打开。
 
+实况图图集会为每张实况照片分别保存静态照片和动态 MP4。平台没有提供动态源时仍保留静态照片并提示。MP4 有音轨时原样保留；没有音轨时也保存并提示，不会凭空生成声音。
+
 未解析时不显示文字导出按钮。清空记录不删除已经下载的文件。批量图片中途取消或失败时，已完成图片保留。
 
 ### B站高清下载（1.2.2）
@@ -55,14 +59,14 @@ Windows 请保留 EXE 旁边的 `app` 和 `runtime` 文件夹。便携版未购�
 
 匿名访问经常只有 360P / 480P。登录后通常能获得普通 1080P，最终以账号权限和作品返回的视频轨道为准；1080P 高码率、4K 等档位可能需要相应会员权限。应用下载并直接合并平台视频与音频，不放大画面，也不能取得平台未公开提供的作者上传母版。
 
-Android 发行包沿用原包名与升级密钥，Windows 提供 EXE 便携包。
+1.2.4 提供 Android 签名 APK 与 Windows EXE 便携包。Android 沿用原包名与升级签名。
 
 ### 平台限制
 
 | 平台 | 支持范围 | 限制 |
 | --- | --- | --- |
 | 抖音 | 返回的视频、图集、文章正文 | 私密、已删除、登录限制和平台风控可能导致失败；文章不是 MP4 |
-| 小红书 | 含完整访问参数的公开分享内容；图片使用原图 CDN | 保留 `xsec_token`；原图失败时不退回带平台水印的 H5 展示图 |
+| 小红书 | 含完整访问参数的公开分享内容；图片使用原图 CDN | 保留 `xsec_token`；原图失败时不退回带平台水印的 H5 展示图；实况字段可能随平台页面变更 |
 | B站 | 公开普通视频、分P、账号可用画质及音视频合并 | 高清可能需要登录或相应会员权限；不能移除源画面里的账号和 bilibili 标识 |
 
 不支持绕过付费、会员、DRM 或私密访问限制。不对视频或图片做裁剪、模糊、画面修复或重编码去水印。请仅下载有权保存的内容，转载和商用前取得授权。
@@ -125,8 +129,8 @@ Get the current build from [GitHub Releases](https://github.com/zw0927/Free-High
 
 | Platform | Package | Installation |
 | --- | --- | --- |
-| Android 8.0+ | `FreeHDDownload-1.2.3-android.apk` | Install the APK; releases retain the original app package and signing key |
-| Windows 10 / 11 x64 | `FreeHDDownload-1.2.3-windows-x64.zip` | Extract everything and run `FreeHDDownload.exe`; Java is included |
+| Android 8.0+ | `FreeHDDownload-1.2.4-android.apk` | Install the APK; releases retain the original app package and signing key |
+| Windows 10 / 11 x64 | `FreeHDDownload-1.2.4-windows-x64.zip` | Extract everything and run `FreeHDDownload.exe`; Java is included |
 | iOS / iPadOS / macOS | Not available | No client or web version is currently provided |
 
 Keep the `app` and `runtime` folders beside the EXE. Windows builds are unsigned and may trigger SmartScreen. Verify release sources and checksums; disabling system protection is not required. The app interface is currently Chinese; this README is bilingual.
@@ -136,6 +140,8 @@ Keep the `app` and `runtime` folders beside the EXE. Windows builds are unsigned
 - Douyin public videos, photo posts, captions and articles, including supported URL-less article commands.
 - Xiaohongshu original video sources, photo posts, captions and covers when provided by the platform.
 - Douyin and Xiaohongshu Live Photo motion is saved as MP4. Native GIF and animated WebP files retain their original format.
+- Live Photo downloads include both the still image and motion MP4. Source clips without an audio track are kept silent and reported.
+- Identify and preserve JPEG, PNG, GIF, WebP, HEIC, HEIF and AVIF files by their signatures.
 - Bilibili ordinary BV / av / b23.tv links, multipart selection and local audio/video muxing.
 - Version 1.2.2 adds optional Bilibili login for account-accessible quality and original Xiaohongshu image CDN sources instead of watermarked H5 display images.
 - Select available resolution, save media locally, copy captions and export UTF-8 TXT.
@@ -150,7 +156,9 @@ Text export controls appear after successful parsing. Articles retain Markdown h
 
 For Bilibili HD in 1.2.2, click `B站登录`. On Windows, scan the official QR using the Bilibili mobile app and confirm; Android opens the official login page. Parse the video again after login and choose an available quality. The session is retained locally and can be removed from the same account button. Expired sessions require login again. Anonymous playback may be limited to 360p/480p; ordinary 1080p generally requires login, while higher tiers may require membership. The app preserves the supplied streams without upscaling or re-encoding; the uploader's original master is not available unless the platform exposes it.
 
-The release includes a signed Android APK and a Windows portable EXE package. Android retains the original application package and upgrade signing key.
+Live Photo galleries save the still image and matching motion MP4. If the source has an audio track, it is retained; otherwise the silent MP4 is kept with a notice. When motion is unavailable, the still image is still saved.
+
+Version 1.2.4 includes a signed Android APK and a portable Windows package. The APK retains the original package name and signing certificate.
 
 ### Limitations
 

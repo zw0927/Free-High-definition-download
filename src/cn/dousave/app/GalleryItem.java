@@ -118,6 +118,12 @@ public final class GalleryItem {
             extension = ".webp";
         } else if ("image/gif".equals(detectedMime)) {
             extension = ".gif";
+        } else if ("image/heic".equals(detectedMime) || "image/heic-sequence".equals(detectedMime)) {
+            extension = ".heic";
+        } else if ("image/heif".equals(detectedMime) || "image/heif-sequence".equals(detectedMime)) {
+            extension = ".heif";
+        } else if ("image/avif".equals(detectedMime) || "image/avif-sequence".equals(detectedMime)) {
+            extension = ".avif";
         } else if (!"image/jpeg".equals(detectedMime)) {
             throw new Exception("暂不支持这张图片的格式");
         }

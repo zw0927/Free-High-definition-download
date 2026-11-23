@@ -1,4 +1,4 @@
-param([string]$Version = '1.2.3')
+param([string]$Version = '1.2.4')
 $ErrorActionPreference = 'Stop'
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
     throw 'Version must use major.minor.patch format.'
@@ -6,7 +6,7 @@ if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
 $projectDirectory = Split-Path -Parent $PSScriptRoot
 $outputDirectory = Join-Path $projectDirectory 'release'
 $sourceArchive = Join-Path $outputDirectory ('FreeHDDownload-' + $Version + '-source.zip')
-& git -c ('safe.directory=' + $projectDirectory.Replace('\', '/')) -C $projectDirectory archive --format=zip --prefix=Free-High-definition-download/ -o $sourceArchive HEAD
+& git -c ('safe.directory=' + $projectDirectory.Replace('\', '/')) -C $projectDirectory archive --format=zip --prefix=Free-High-definition-download/ -o $sourceArchive HEAD -- . ':(exclude)promotion'
 if ($LASTEXITCODE -ne 0) {
     throw 'Source archive failed.'
 }

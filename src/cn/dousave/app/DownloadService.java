@@ -192,7 +192,7 @@ public final class DownloadService extends Service {
         }
     }
 
-    private void receiveCandidates(String[] urls, GalleryItem temporary, String referer, String kind) throws Exception {
+    private boolean receiveCandidates(String[] urls, GalleryItem temporary, String referer, String kind) throws Exception {
         Exception lastError = new Exception("没有可用的下载线路");
         for (String url : urls) {
             if (cancelled) {
@@ -200,8 +200,7 @@ public final class DownloadService extends Service {
             }
             try {
                 receive(url, temporary, referer, kind);
-                validateTrack(temporary, kind);
-                return;
+                return validateTrack(temporary, kind);
             } catch (Exception error) {
                 lastError = error;
                 if (cancelled) {
@@ -212,35 +211,41 @@ public final class DownloadService extends Service {
         throw lastError;
     }
 
-    private void validateTrack(GalleryItem item, String kind) throws Exception {
+    private boolean validateTrack(GalleryItem item, String kind) throws Exception {
         if (kind.equals("图片")) {
             try (android.os.ParcelFileDescriptor file = item.descriptor(false)) {
-                android.graphics.BitmapFactory.Options options = new android.graphics.BitmapFactory.Options();
-                options.inJustDecodeBounds = true;
-                android.graphics.BitmapFactory.decodeFileDescriptor(file.getFileDescriptor(), null, options);
-                if (options.outWidth <= 0 || options.outHeight <= 0 || options.outMimeType == null) {
-                    throw new Exception("平台未返回有效图片");
+                try (java.io.FileInputStream input = new java.io.FileInputStream(file.getFileDescriptor())) {
+                    ImageMedia.detect(input);
                 }
             }
-            return;
+            return false;
         }
         android.media.MediaExtractor reader = new android.media.MediaExtractor();
-        String prefix = "video/";
-        if (kind.equals("音频")) {
-            prefix = "audio/";
-        }
+        boolean hasVideo = false;
+        boolean hasAudio = false;
         try (android.os.ParcelFileDescriptor file = item.descriptor(false)) {
             reader.setDataSource(file.getFileDescriptor());
             for (int index = 0; index < reader.getTrackCount(); index++) {
                 String mime = reader.getTrackFormat(index).getString(android.media.MediaFormat.KEY_MIME);
-                if (mime != null && mime.startsWith(prefix)) {
-                    reader.selectTrack(index);
-                    if (reader.getSampleTime() >= 0) {
-                        return;
-                    }
+                if (mime == null) {
+                    continue;
+                }
+                if (mime.startsWith("video/")) {
+                    hasVideo = true;
+                } else if (mime.startsWith("audio/")) {
+                    hasAudio = true;
                 }
             }
-            throw new Exception("平台未返回有效的" + kind + "文件，请重新解析");
+            if (kind.equals("音频")) {
+                if (!hasAudio) {
+                    throw new Exception("平台未返回有效的音频文件，请重新解析");
+                }
+                return true;
+            }
+            if (!hasVideo) {
+                throw new Exception("平台未返回有效的" + kind + "文件，请重新解析");
+            }
+            return hasAudio;
         } finally {
             reader.release();
         }
@@ -335,6 +340,9 @@ public final class DownloadService extends Service {
 
     private void saveImages(JSONArray groups, String referer, String baseName) throws Exception {
         int completed = 0;
+        int silentMotionCount = 0;
+        int failed = 0;
+        String firstFailure = "";
         try {
             for (int index = 0; index < groups.length(); index++) {
                 if (cancelled) {
@@ -360,16 +368,18 @@ public final class DownloadService extends Service {
                 String kind = "图片";
                 String extension = ".jpg";
                 if (motion) {
+                    name += "_motion";
                     mime = "video/mp4";
                     extension = ".mp4";
                     kind = "实况";
                 }
-                GalleryItem item = new GalleryItem(this, name + extension, mime);
+                GalleryItem item = null;
+                android.graphics.BitmapFactory.Options options = new android.graphics.BitmapFactory.Options();
+                options.inJustDecodeBounds = true;
                 try {
+                    item = new GalleryItem(this, name + extension, mime);
                     publish("running", "正在保存" + kind + " " + (index + 1) + " / " + groups.length(), -1, "");
-                    receiveCandidates(urls, item, referer, kind);
-                    android.graphics.BitmapFactory.Options options = new android.graphics.BitmapFactory.Options();
-                    options.inJustDecodeBounds = true;
+                    boolean hasAudio = receiveCandidates(urls, item, referer, kind);
                     try (android.os.ParcelFileDescriptor file = item.descriptor(false)) {
                         if (motion) {
                             MediaMetadataRetriever metadata = new MediaMetadataRetriever();
@@ -381,9 +391,17 @@ public final class DownloadService extends Service {
                                 metadata.release();
                             }
                         } else {
-                            android.graphics.BitmapFactory.decodeFileDescriptor(file.getFileDescriptor(), null, options);
-                            mime = options.outMimeType;
-                            item.imageType(mime);
+                            ImageMedia.Format format;
+                            try (java.io.FileInputStream input = new java.io.FileInputStream(file.getFileDescriptor())) {
+                                format = ImageMedia.detect(input);
+                            }
+                            mime = format.mime;
+                            item.imageType(format.mime);
+                        }
+                    }
+                    if (!motion) {
+                        try (android.os.ParcelFileDescriptor imageFile = item.descriptor(false)) {
+                            android.graphics.BitmapFactory.decodeFileDescriptor(imageFile.getFileDescriptor(), null, options);
                         }
                     }
                     if (cancelled) {
@@ -391,9 +409,27 @@ public final class DownloadService extends Service {
                     }
                     item.commit();
                     completed += 1;
-                    remember(item.uri, currentTitle + " · " + position, options.outWidth, options.outHeight, mime);
+                    if (motion && !hasAudio) {
+                        silentMotionCount += 1;
+                    }
+                } catch (Exception error) {
+                    if (cancelled || error instanceof InterruptedException) {
+                        throw error;
+                    }
+                    failed += 1;
+                    if (failed == 1) {
+                        firstFailure = "第 " + position + " 项" + kind + "：" + error.getMessage();
+                    }
+                    continue;
                 } finally {
-                    item.discard();
+                    if (item != null) {
+                        item.discard();
+                    }
+                }
+                // The media is already saved even if the history entry cannot be written.
+                try {
+                    remember(item.uri, currentTitle + " · " + position, options.outWidth, options.outHeight, mime);
+                } catch (Exception ignored) {
                 }
             }
         } catch (Exception error) {
@@ -403,7 +439,17 @@ public final class DownloadService extends Service {
             throw new Exception("已保存 " + completed + " 项，其余未完成：" + error.getMessage());
         }
         String message = "已保存 " + completed + " 项图集内容到相册";
-        publish("complete", message, 100, "");
+        if (silentMotionCount > 0) {
+            message += "；" + silentMotionCount + " 段实况源无音轨，已静音保存";
+        }
+        if (failed > 0) {
+            message += "；" + failed + " 个文件失败（" + firstFailure + "）";
+        }
+        String state = "complete";
+        if (completed == 0 && failed > 0) {
+            state = "error";
+        }
+        publish(state, message, 100, "");
         stopForeground(STOP_FOREGROUND_REMOVE);
         getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, notification(message, 100, false, null));
     }

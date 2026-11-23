@@ -1,4 +1,4 @@
-Free HD Download / 无水印下载 1.2.3
+Free HD Download / 无水印下载 1.2.4
 
 Windows 10/11 x64. Extract the entire ZIP, then run FreeHDDownload.exe.
 Keep the app and runtime folders next to the EXE. No Java installation required.
@@ -10,7 +10,8 @@ Keep the app and runtime folders next to the EXE. No Java installation required.
 B站高清：点击“B站登录”，使用手机B站扫码确认，应用会重新获取账号可用画质。
 登录状态保留在本机应用数据目录，可点击“B站已登录”退出。
 小红书图片使用原图源，不使用带平台水印的H5展示图。
-小红书、抖音实况图的动态部分以 MP4 保存，GIF 和动态 WebP 保留原格式。
+小红书、抖音实况图同时保存静态照片和同序号动态 MP4；没有音轨的 MP4 保留静音并提示。
+JPEG、PNG、GIF、WebP、HEIC、HEIF 和 AVIF 按原格式保存。
 平台返回的画质、访问限制、嵌入画面的水印均受原内容影响。
 
 Paste a Douyin, Xiaohongshu or Bilibili share link. Choose a destination

@@ -510,9 +510,9 @@ public final class MainActivity extends Activity {
         }
         if (!parsed.images.isEmpty()) {
             imagesDownload.setVisibility(View.VISIBLE);
-            imagesDownload.setText("保存 " + parsed.images.size() + " 张图片到相册");
+            imagesDownload.setText("保存 " + parsed.images.size() + " 项图集内容到相册");
             if (parsed.hasMotion()) {
-                imagesDownload.setText("保存图片和实况到相册");
+                imagesDownload.setText("保存静态照片和动态视频到相册");
             }
             if (!parsed.variants.isEmpty()) {
                 imagesDownload.setText("保存封面到相册");

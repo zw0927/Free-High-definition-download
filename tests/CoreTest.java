@@ -107,6 +107,18 @@ public final class CoreTest {
         }
         check(rejected, "Reject XHS playback-only source");
         check(ShareLink.platform(ShareLink.extract("新闻联播云电脑关机 https\\://xhslink.cn/o/67YOrxwbrRh")).equals("小红书"), "XHS cn share domain");
+        check(ImageMedia.detect(new java.io.ByteArrayInputStream(new byte[] {(byte) 0xff, (byte) 0xd8, (byte) 0xff, 0})).extension.equals(".jpg"), "Detect JPEG image signature");
+        check(ImageMedia.detect(new java.io.ByteArrayInputStream("GIF89a".getBytes(StandardCharsets.US_ASCII))).extension.equals(".gif"), "Detect animated GIF without re-encoding");
+        check(ImageMedia.detect(new java.io.ByteArrayInputStream(new byte[] {'R','I','F','F',0,0,0,0,'W','E','B','P'})).mime.equals("image/webp"), "Detect WebP image signature");
+        check(ImageMedia.detect(new java.io.ByteArrayInputStream(new byte[] {0,0,0,24,'f','t','y','p','h','e','i','c',0,0,0,0,'m','i','f','1'})).mime.equals("image/heic"), "Detect HEIC image signature");
+        check(ImageMedia.detect(new java.io.ByteArrayInputStream(new byte[] {0,0,0,24,'f','t','y','p','m','i','f','1',0,0,0,0,'a','v','i','f'})).mime.equals("image/avif"), "Detect AVIF compatible brand");
+        boolean unsupportedImage = false;
+        try {
+            ImageMedia.detect(new java.io.ByteArrayInputStream("unsupported-image".getBytes(StandardCharsets.US_ASCII)));
+        } catch (java.io.IOException expected) {
+            unsupportedImage = true;
+        }
+        check(unsupportedImage, "Reject unrecognized image data");
         JSONObject mobileState = new JSONObject().put("noteData", new JSONObject().put("data", new JSONObject().put("noteData", note)));
         note.getJSONObject("video").put("consumer", new JSONObject().put("originVideoKey", "pre_post/test"));
         VideoInfo mobile = VideoResolver.parseXhs(mobileState, noteId);
@@ -123,6 +135,10 @@ public final class CoreTest {
         JSONObject imageWithoutId = new JSONObject(note.getJSONArray("imageList").getJSONObject(0).toString());
         imageWithoutId.remove("fileId");
         check(VideoResolver.xhsImageSources(imageWithoutId).equals(photoNote.images.get(0).urls), "XHS original key derived from signed webpic path when fileId is missing");
+        JSONObject imageWithUrlPre = new JSONObject().put("urlPre",
+            "https://sns-webpic-qc.xhscdn.com/202611171623/e7c65a4f749135a81c3af77d769051ba/spectrum/1040g34o327lg12566g505pj2pr23cul1hs42fj8!h5_1080jpg");
+        check(VideoResolver.xhsImageSources(imageWithUrlPre).get(0).equals(photoNote.images.get(0).urls.get(0)),
+            "XHS original image key can be recovered from urlPre when fileId and urlDefault are absent");
         for (String address : photoNote.images.get(0).urls) {
             check(!address.contains("!") && !address.contains("webpic"), "Never fall back to XHS watermarked transformations");
         }
@@ -131,10 +147,20 @@ public final class CoreTest {
         xhsGallery.put(new JSONObject().put("livePhoto", true).put("fileId", "cover3"));
         xhsGallery.put(new JSONObject().put("fileId", "image4"));
         VideoInfo xhsMotion = VideoResolver.parseXhs(mobileState, noteId);
-        check(xhsMotion.hasMotion() && xhsMotion.images.size() == 3 && xhsMotion.unavailableMotionCount == 1, "Mixed XHS gallery preserves the live clip and reports an unavailable clip");
-        check(xhsMotion.images.get(1).position == 2 && xhsMotion.images.get(1).urls.size() == 1
-            && xhsMotion.images.get(1).urls.get(0).equals("https://sns-video-bd.xhscdn.com/live.mp4")
-            && xhsMotion.images.get(2).position == 4, "XHS selects the unmarked motion source and preserves gallery positions");
+        check(xhsMotion.hasMotion() && xhsMotion.images.size() == 5 && xhsMotion.unavailableMotionCount == 1, "Mixed XHS gallery preserves stills and motion while reporting an unavailable clip");
+        check(xhsMotion.images.get(1).position == 2 && !xhsMotion.images.get(1).motion
+            && xhsMotion.images.get(2).position == 2 && xhsMotion.images.get(2).motion
+            && xhsMotion.images.get(2).urls.size() == 1
+            && xhsMotion.images.get(2).urls.get(0).equals("https://sns-video-bd.xhscdn.com/live.mp4")
+            && xhsMotion.images.get(3).position == 3 && !xhsMotion.images.get(3).motion
+            && xhsMotion.images.get(4).position == 4, "XHS saves every still beside its matching motion clip");
+        JSONObject snakeCaseLive = new JSONObject("{\"file_id\":\"image-five\",\"live_photo\":{\"media\":{\"stream\":{\"h265\":[{\"master_url\":\"//sns-video-bd.xhscdn.com/live-five.mp4\",\"backup_urls\":[\"https://sns-video-qc.xhscdn.com/live-five-backup.mp4\"]}]}}}}");
+        java.util.ArrayList<String> snakeCaseMotionSources = VideoResolver.xhsMotionSources(snakeCaseLive);
+        check(snakeCaseMotionSources.size() == 2
+            && snakeCaseMotionSources.get(0).equals("https://sns-video-bd.xhscdn.com/live-five.mp4"),
+            "XHS supports native live_photo.media.stream snake-case response: " + snakeCaseMotionSources);
+        check(VideoResolver.xhsImageSources(snakeCaseLive).get(0).contains("image-five"),
+            "XHS supports native snake-case still image file_id");
         rejected = false;
         try {
             VideoResolver.xhsImageSources(new JSONObject().put("fileId", "../private/file"));
@@ -156,11 +182,21 @@ public final class CoreTest {
         douyinGallery.put(new JSONObject("{\"video\":{\"play_addr\":{\"url_list\":[\"https://www.douyin.com/aweme/v1/playwm/?video_id=bad\",\"//v.douyinvod.com/live.mp4\"]}},\"url_list\":[\"https://example.invalid/cover.webp\"]}"));
         douyinGallery.put(new JSONObject("{\"video\":{\"download_addr\":{\"url_list\":[\"https://www.douyin.com/aweme/v1/playwm/?video_id=bad\"]}},\"url_list\":[\"https://example.invalid/cover.webp\"]}"));
         VideoInfo douyinMotion = VideoInfo.parse(new JSONObject().put("aweme_detail", photoDetail).toString(), "7708260643380177914");
-        check(douyinMotion.images.size() == 2 && !douyinMotion.images.get(0).motion && douyinMotion.hasMotion()
-            && douyinMotion.images.get(1).urls.equals(java.util.Collections.singletonList("https://v.douyinvod.com/live.mp4")),
-            "Douyin uses per-image motion playback and rejects a marked candidate");
+        check(douyinMotion.images.size() == 4 && !douyinMotion.images.get(0).motion && douyinMotion.hasMotion()
+            && !douyinMotion.images.get(1).motion && douyinMotion.images.get(2).motion
+            && !douyinMotion.images.get(3).motion
+            && douyinMotion.images.get(3).position == 3
+            && douyinMotion.images.get(2).urls.equals(java.util.Collections.singletonList("https://v.douyinvod.com/live.mp4")),
+            "Douyin saves each still beside its motion clip and rejects a marked candidate");
         check(douyinMotion.unavailableMotionCount == 1 && !douyinMotion.galleryNotice().isEmpty(),
             "A Douyin unavailable motion item is reported rather than saved as a static cover");
+        JSONObject nestedDouyinLive = new JSONObject("{\"live_photo\":{\"media\":{\"stream\":{\"h265\":[{\"master_url\":\"https://v.douyinvod.com/nested-live.mp4\"}]}}},\"url_list\":[\"https://example.invalid/nested-cover.webp\"]}");
+        photoDetail.put("images", new org.json.JSONArray().put(nestedDouyinLive));
+        VideoInfo nestedDouyinResult = VideoInfo.parse(new JSONObject().put("aweme_detail", photoDetail).toString(), "7708260643380177914");
+        check(nestedDouyinResult.images.size() == 2 && nestedDouyinResult.images.get(0).position == 1
+            && !nestedDouyinResult.images.get(0).motion && nestedDouyinResult.images.get(1).motion
+            && nestedDouyinResult.images.get(1).urls.get(0).contains("nested-live.mp4"),
+            "Douyin nested live_photo.media.stream preserves the still and motion pair");
         photoDetail.remove("images");
         VideoInfo textOnly = VideoInfo.parse(new JSONObject().put("aweme_detail", photoDetail).toString(), "7708260643380177914");
         check(textOnly.images.isEmpty() && textOnly.variants.isEmpty() && !textOnly.description.isEmpty(), "Text-only metadata");

@@ -1,5 +1,35 @@
 ## 中文
 
+### v1.2.4
+
+- 修复小红书原生 `live_photo.media.stream` 数据结构未识别：现在支持 camelCase 与 snake_case 字段及主/备用视频地址。
+- 小红书和抖音实况均保存静态照片及同序号动态 MP4；无动态源时保留静态照片并提示。
+- 检测 MP4 音轨轨道；源视频含音轨则保留，源本身无音轨时保存静音 MP4并提示。Android 按 MP4 音频轨是否存在判断，不依赖首帧音频时间戳。
+- 支持并原样保存 JPEG、PNG、GIF、WebP、HEIC、HEIF、AVIF 图片，修复 HEIC/AVIF 被拒绝保存的问题。
+- Windows 完整回归保存了抖音图集的 4 张静态图与 3 段实况 MP4；三个源均含音轨。另从实况样本生成 video-only MP4，验证无音轨识别与提示计数。小红书实况的 native snake_case 响应使用模拟数据验证。
+- 已检查一条小红书公开笔记的实况源，其网页端 MP4 无音轨。Android 真机相册播放仍待验证。
+- 图片格式识别单元测试通过，Android APK 在 aapt2 无法启动时由同一 SDK 的 legacy AAPT 完成资源打包；APK v2/v3 签名与旧版相同。
+- 回归测试和安装包验证记录见 `VALIDATION.md`。
+- 从发行附件下载 APK、Windows 便携 ZIP 或源码 ZIP。校验值见 `SHA256SUMS.txt`。
+
+## English
+
+### v1.2.4
+
+- Parse Xiaohongshu native `live_photo.media.stream` as well as camelCase responses, including primary and backup motion URLs.
+- Save the still photo and matching motion MP4 for Xiaohongshu and Douyin Live Photos. Preserve the still and report when motion is unavailable.
+- Inspect MP4 audio tracks. Preserve source audio; save silent clips and report when the source contains no audio track.
+- Detect and preserve JPEG, PNG, GIF, WebP, HEIC, HEIF and AVIF image formats, fixing unsupported HEIC/AVIF saves.
+- The Douyin gallery regression saved four still images and three motion MP4s; all three sources contained audio. A derived video-only MP4 verified silent-source detection and notice counting. Xiaohongshu native snake_case data uses fixtures.
+- A public Xiaohongshu post was inspected, and its web motion MP4 contained no audio track.
+- Android on-device gallery playback remains unverified.
+- See `VALIDATION.md` for test and package verification details.
+- Download the APK, portable Windows ZIP, or source ZIP from the release assets. Checksums are in `SHA256SUMS.txt`.
+
+---
+
+## 中文
+
 ### v1.2.3
 
 - 修复抖音和小红书实况图只保存静态封面的问题。图集中的实况视频保存为 MP4，静态图片保留原顺序。

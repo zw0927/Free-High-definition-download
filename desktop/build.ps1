@@ -1,4 +1,4 @@
-param([switch]$KeepBuild, [string]$Packager = '')
+param([switch]$KeepBuild, [string]$Packager = '', [string]$JdkBin = '')
 $ErrorActionPreference = 'Stop'
 $projectDirectory = Split-Path -Parent $PSScriptRoot
 $dependencyDirectory = Join-Path $projectDirectory '.tools\desktop\lib'
@@ -12,6 +12,15 @@ if ($null -eq $jdk) {
     throw 'Run desktop/setup.ps1 first to download a redistributable Temurin JDK.'
 }
 $javaDirectory = Join-Path $jdk.FullName 'bin'
+if (!$JdkBin.Equals('')) {
+    $resolvedJdkBin = [IO.Path]::GetFullPath($JdkBin)
+    foreach ($tool in @('javac.exe', 'jar.exe', 'jlink.exe', 'jpackage.exe')) {
+        if (!(Test-Path -LiteralPath (Join-Path $resolvedJdkBin $tool))) {
+            throw ('Requested JDK tool is missing: ' + $tool)
+        }
+    }
+    $javaDirectory = $resolvedJdkBin
+}
 if ($Packager -eq '') {
     $Packager = Join-Path $javaDirectory 'jpackage.exe'
 }
@@ -47,6 +56,11 @@ $sources = @()
 foreach ($name in $sharedNames) {
     $sources += Join-Path $projectDirectory ('src\cn\dousave\app\' + $name + '.java')
 }
+$imageMediaSource = Join-Path $projectDirectory 'src\cn\dousave\app\ImageMedia.java'
+if (!(Test-Path -LiteralPath $imageMediaSource -PathType Leaf)) {
+    throw 'The shared image format detector is missing.'
+}
+$sources += $imageMediaSource
 $sources += Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src') -Recurse -Filter '*.java' | ForEach-Object { $_.FullName }
 Invoke-Checked (Join-Path $javaDirectory 'javac.exe') (@('-encoding', 'UTF-8', '--release', '17', '-cp', ($dependencyDirectory + '\*'), '-d', $classesDirectory) + $sources)
 Invoke-Checked (Join-Path $javaDirectory 'jar.exe') @('--create', '--file', (Join-Path $inputDirectory 'free-hd-download.jar'), '--main-class', 'cn.dousave.desktop.DesktopApp', '-C', $classesDirectory, '.', '-C', $projectDirectory, 'assets')
@@ -62,13 +76,13 @@ if (Test-Path -LiteralPath $appDirectory) {
     }
     Remove-Item -LiteralPath $resolvedApp -Recurse -Force
 }
-Invoke-Checked $Packager @('--type', 'app-image', '--name', 'FreeHDDownload', '--app-version', '1.2.3', '--vendor', 'Free HD Download contributors', '--input', $inputDirectory, '--main-jar', 'free-hd-download.jar', '--main-class', 'cn.dousave.desktop.DesktopApp', '--runtime-image', $runtime, '--dest', $outputDirectory, '--java-options', '-Dfile.encoding=UTF-8', '--temp', (Join-Path $workDirectory 'package-temp'))
+Invoke-Checked $Packager @('--type', 'app-image', '--name', 'FreeHDDownload', '--app-version', '1.2.4', '--vendor', 'Free HD Download contributors', '--input', $inputDirectory, '--main-jar', 'free-hd-download.jar', '--main-class', 'cn.dousave.desktop.DesktopApp', '--runtime-image', $runtime, '--dest', $outputDirectory, '--java-options', '-Dfile.encoding=UTF-8', '--temp', (Join-Path $workDirectory 'package-temp'))
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'README.txt') -Destination $appDirectory
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'LICENSE') -Destination $appDirectory
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'NOTICE') -Destination $appDirectory
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'assets\licenses') -Destination (Join-Path $appDirectory 'licenses') -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'assets\THIRD_PARTY_NOTICES.txt') -Destination $appDirectory
-$archive = Join-Path $projectDirectory 'release\FreeHDDownload-1.2.3-windows-x64.zip'
+$archive = Join-Path $projectDirectory 'release\FreeHDDownload-1.2.4-windows-x64.zip'
 Compress-Archive -Path $appDirectory -DestinationPath $archive -Force
 Get-FileHash -LiteralPath $archive -Algorithm SHA256
 Write-Output ('EXE: ' + (Join-Path $appDirectory 'FreeHDDownload.exe'))

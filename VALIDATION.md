@@ -1,3 +1,23 @@
+# 1.2.4 实况配对、图片格式与音轨验证
+
+## 小红书实况声音复查
+
+- 2026-11-23 使用 Java 解析器成功读取一条公开小红书实况笔记。该实况在小红书 App 内长按播放时可听到声音。
+- 移动分享页提供五张照片，仅第 1 张有动态流。网页返回的实况只有一个 `WEB_LIVEPHOTO_19` 视频版本，音频码率、声道数和音频时长均为 0，页面中未找到独立音频地址。下载主、备地址并检查 MP4 轨道，两份文件 SHA256 一致，均只有 2.7 秒的 H.264 视频轨。第 1 张静态原图为独立 HEIC，未发现附带 MP4。
+- 用户提供的本地 MP4 为 298,554 字节，含 81 个视频样本、2.7 秒 HEVC 视频轨，无音频轨。该文件与本次网页 MP4 的字节和编码不同，无法据此确认 App 内播放声音的来源。恢复声音仍需同一张实况对应的有声文件、独立音轨，或经验证的有声播放地址。
+
+## 构建与回归
+
+- 核心回归通过：HEIC/AVIF/GIF/WebP/JPEG 签名识别，XHS live_photo.media.stream snake_case、master_url/备用 URL、静态照片配对和原图顺序，抖音嵌套 live_photo 与 video.play_addr，拒绝明确带水印候选。
+- Windows 使用真实抖音公开图集 7676078420824775161 完成保存：4 张静态照片和 3 段动态 MP4 均落盘，无临时文件。三段源 MP4 均检测到音轨；另从实况 MP4 生成 video-only MP4，确认检测器识别无音轨，并核对静音计数。
+- Android API 35 源码编译、legacy AAPT 资源打包、D8、APK 对齐和 v2/v3 签名打包通过。新 APK 版本 1.2.4 / versionCode 7；签名证书 SHA256 与 1.2.3 相同：7e2857a5f9095291b6394bf2c83a5acdeeb789fc06aa94ae737b38c18f9264a8。
+- Android aapt2 启动失败，Windows 返回状态码 0xC0000142；构建脚本回退到同一 SDK Build Tools 的 legacy AAPT。APK 已验证资源清单为 package cn.dousave.app / versionCode 7 / versionName 1.2.4，zipalign 检查及 v2/v3 签名通过；签名证书延续 v1.2.3。
+- 完整 Android 静态分析、D8 和签名包构建通过。未做 Android 真机安装/MediaStore 实况保存/系统相册播放。
+- Android 与 Windows 静音判断按容器内音轨轨道存在性处理，避免将合法负起始时间戳的 AAC 误报为无音轨。
+- 此前部分小红书样例在 Windows 上遇到 TLS 握手问题。公开解析字段结构已用 snake_case 测试样例覆盖。
+- 安装包和源码压缩包的 SHA256 以发行附件 `SHA256SUMS.txt` 为准。
+- 最终 v1.2.4 Desktop Online regression 通过：真实抖音图集保存4静态+3动态、全部动态有音轨；video-only 派生文件正确判断静音；B站音视频合并、取消清理、UI解析/清空检查通过。
+
 # 1.2.3 实况图验证
 
 - 抖音公开图集 `7676078420824775161` 经新版 Windows 包的解析和保存逻辑生成三段实况 MP4 和一张 WebP，编号按原图集顺序排列。三段 MP4 全部通过 FFmpeg 完整解码，保存目录无 `.part` 残留。
